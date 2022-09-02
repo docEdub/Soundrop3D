@@ -1,33 +1,33 @@
 var createScene = function () {
-    // This creates a basic Babylon Scene object (non-mesh)
-    var scene = new BABYLON.Scene(engine);
+    const scene = new BABYLON.Scene(engine)
+    scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.OimoJSPlugin(true, 2, OIMO))
 
-    // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+    var camera = new BABYLON.FreeCamera(`camera`, new BABYLON.Vector3(0, 5, -20), scene)
+    camera.setTarget(BABYLON.Vector3.Zero())
+    camera.attachControl(null, true)
 
-    // This targets the camera to scene origin
-    camera.setTarget(BABYLON.Vector3.Zero());
+    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene)
+    light.intensity = 0.7
 
-    // This attaches the camera to the canvas
-    camera.attachControl(canvas, true);
+    let sphere = BABYLON.MeshBuilder.CreateSphere(`sphere`, { diameter: 1, segments: 32 }, scene)
+    sphere.position.set(-10, 12, 0)
+	sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 1,  }, scene)
 
-    // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-    var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+    const plane1 = BABYLON.MeshBuilder.CreatePlane(`plane 1`, { size: 8, sideOrientation: BABYLON.Mesh.DOUBLESIDE })
+    plane1.rotateAround(BABYLON.Vector3.ZeroReadOnly, BABYLON.Vector3.RightReadOnly, Math.PI / 2)
+    plane1.rotateAround(BABYLON.Vector3.ZeroReadOnly, BABYLON.Vector3.RightHandedForwardReadOnly, Math.PI / 8)
+    plane1.scaling.y = 0.25
+    plane1.position.set(-7, 0, 0)
+    plane1.physicsImpostor =  new BABYLON.PhysicsImpostor(plane1, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
 
-    // Default intensity is 1. Let's dim the light a small amount
-    light.intensity = 0.7;
+    const plane2 = plane1.clone()
+    plane2.rotateAround(BABYLON.Vector3.ZeroReadOnly, BABYLON.Vector3.RightHandedForwardReadOnly, -Math.PI / 4)
+    plane2.scaling.x = 2
+    plane2.position.set(7, 0, 0)
+    plane2.physicsImpostor =  new BABYLON.PhysicsImpostor(plane2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
 
-    // Our built-in 'sphere' shape.
-    var sphere = BABYLON.MeshBuilder.CreateSphere("sphere", { diameter: 2, segments: 32 }, scene);
-
-    // Move the sphere upward 1/2 its height
-    sphere.position.y = 1;
-
-    // Our built-in 'ground' shape.
-    var ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 6, height: 6 }, scene);
-
-    return scene;
-};
+    return scene
+}
 
 function isInBabylonPlayground() {
     return document.getElementById('pg-root') !== null
