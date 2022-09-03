@@ -26,6 +26,14 @@ var createScene = function () {
     plane2.position.set(7, 0, 0)
     plane2.physicsImpostor =  new BABYLON.PhysicsImpostor(plane2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
 
+    plane1.physicsImpostor.registerOnPhysicsCollide([ sphere.physicsImpostor ], (collider, collidedAgainst, point) => {
+        console.debug(`Sphere collided with plane 1`)
+    })
+
+    plane2.physicsImpostor.registerOnPhysicsCollide([ sphere.physicsImpostor ], (collider, collidedAgainst, point) => {
+        console.debug(`Sphere collided with plane 2`)
+    })
+
     return scene
 }
 
