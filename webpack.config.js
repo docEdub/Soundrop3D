@@ -8,9 +8,9 @@ const externals = [
         src: 'https://cdn.babylonjs.com/babylon.js',
     },
     {
-        name: 'oimo',
-        globalVarName: 'OIMO',
-        src: 'https://cdn.babylonjs.com/Oimo.js',
+        name: 'cannon',
+        globalVarName: 'CANNON',
+        src: 'https://cdn.babylonjs.com/cannon.js',
     },
 ]
 

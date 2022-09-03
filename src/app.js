@@ -1,5 +1,5 @@
 import * as BABYLON from 'babylonjs'
-import * as OIMO from 'oimo'
+import * as CANNON from 'cannon'
 
 const createScene = require('./playground.js')
 
