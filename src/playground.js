@@ -17,10 +17,10 @@ var createScene = function () {
     plane1.scaling.y = 0.25
     plane1.position.set(-7, 0, 0)
     plane1.physicsImpostor =  new BABYLON.PhysicsImpostor(plane1, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
-    console.log(plane1.physicsImpostor.physicsBody)
     plane1.physicsImpostor.physicsBody.shapes.collidesWith = 2
 
     const plane2 = plane1.clone()
+    plane2.name = "plane 2"
     plane2.rotateAround(BABYLON.Vector3.ZeroReadOnly, BABYLON.Vector3.RightHandedForwardReadOnly, -Math.PI / 3)
     plane2.scaling.x = 2
     plane2.position.set(7, 0, 0)
@@ -28,10 +28,12 @@ var createScene = function () {
     plane2.physicsImpostor.physicsBody.shapes.collidesWith = 2
 
     const onCollide = (collider, collidedAgainst, point) => {
-        // console.debug(`onCollide`)
+        if (collider.object.name != "") {
+            console.debug(`collider = ${collider.object.name}, collidedAgainst = ${collidedAgainst.object.name}, at point = ${point}`)
+        }
     }
 
-    setInterval(() => {
+    setTimeout(() => {
         let sphere = BABYLON.MeshBuilder.CreateSphere(`sphere`, { diameter: 0.5, segments: 32 }, scene)
         sphere.position.set(-10, 12, 0)
         sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.95,  }, scene)
