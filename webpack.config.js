@@ -3,14 +3,14 @@ const path = require('path')
 
 const externals = [
     {
+        name: 'ammo.js',
+        globalVarName: 'Ammo',
+        src: 'https://cdn.babylonjs.com/ammo.js',
+    },
+    {
         name: 'babylonjs',
         globalVarName: 'BABYLON',
         src: 'https://cdn.babylonjs.com/babylon.js',
-    },
-    {
-        name: 'oimo',
-        globalVarName: 'OIMO',
-        src: 'https://cdn.babylonjs.com/Oimo.js',
     },
 ]
 

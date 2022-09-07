@@ -1,6 +1,6 @@
 var createScene = function () {
     const scene = new BABYLON.Scene(engine)
-    scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.OimoJSPlugin(true, 1, OIMO))
+    scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(true, 1, ammo))
     const physicsEngine = scene.getPhysicsEngine();
     physicsEngine.setSubTimeStep(10);
 
