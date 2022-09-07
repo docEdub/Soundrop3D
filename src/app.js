@@ -1,4 +1,4 @@
-import Ammo from 'ammo.js'
+import * as Ammo from 'ammo.js'
 import * as BABYLON from 'babylonjs'
 
 const createScene = require('./playground.js')
@@ -6,15 +6,16 @@ const createScene = require('./playground.js')
 global.canvas = document.getElementsByTagName('canvas')[0]
 global.engine = new BABYLON.Engine(canvas, true)
 
-const ammo = Ammo()
-global.ammo = ammo
+new Ammo().then((ammo) => {
+    global.ammo = ammo
 
-const scene = createScene()
+    const scene = createScene()
 
-engine.runRenderLoop(() => {
-    scene.render();
+    engine.runRenderLoop(() => {
+        scene.render();
+    })
+
+    onresize = () => {
+        engine.resize()
+    }
 })
-
-onresize = () => {
-    engine.resize()
-}
