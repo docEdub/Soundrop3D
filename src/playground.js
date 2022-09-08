@@ -1,10 +1,10 @@
 var createScene = function () {
     const scene = new BABYLON.Scene(engine)
-    scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(true, 1, ammo))
-    const physicsEngine = scene.getPhysicsEngine();
-    physicsEngine.setSubTimeStep(10);
+    scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(true, ammo))
+    // const physicsEngine = scene.getPhysicsEngine();
+    // physicsEngine.setSubTimeStep(10);
 
-    var camera = new BABYLON.FreeCamera(`camera`, new BABYLON.Vector3(0, 5, -20), scene)
+    var camera = new BABYLON.FreeCamera(`camera`, new BABYLON.Vector3(0, 5, -50), scene)
     camera.setTarget(BABYLON.Vector3.Zero())
     camera.attachControl(null, true)
 
@@ -17,7 +17,7 @@ var createScene = function () {
     plane1.scaling.y = 0.25
     plane1.position.set(-7, 0, 0)
     plane1.physicsImpostor =  new BABYLON.PhysicsImpostor(plane1, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
-    plane1.physicsImpostor.physicsBody.shapes.collidesWith = 2
+    // plane1.physicsImpostor.physicsBody.shapes.collidesWith = 2
 
     const plane2 = plane1.clone()
     plane2.name = "plane 2"
@@ -25,7 +25,7 @@ var createScene = function () {
     plane2.scaling.x = 2
     plane2.position.set(7, 0, 0)
     plane2.physicsImpostor =  new BABYLON.PhysicsImpostor(plane2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
-    plane2.physicsImpostor.physicsBody.shapes.collidesWith = 2
+    // plane2.physicsImpostor.physicsBody.shapes.collidesWith = 2
 
     const onCollide = (collider, collidedAgainst, point) => {
         if (collider.object.name != "") {
@@ -33,12 +33,12 @@ var createScene = function () {
         }
     }
 
-    setTimeout(() => {
+    setInterval(() => {
         let sphere = BABYLON.MeshBuilder.CreateSphere(`sphere`, { diameter: 0.5, segments: 32 }, scene)
         sphere.position.set(-10, 12, 0)
         sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.95,  }, scene)
-        sphere.physicsImpostor.physicsBody.shapes.belongsTo = 2
-        sphere.physicsImpostor.physicsBody.shapes.collidesWith = 1
+        // sphere.physicsImpostor.physicsBody.shapes.belongsTo = 2
+        // sphere.physicsImpostor.physicsBody.shapes.collidesWith = 1
         plane1.physicsImpostor.registerOnPhysicsCollide(sphere.physicsImpostor, onCollide)
         plane2.physicsImpostor.registerOnPhysicsCollide(sphere.physicsImpostor, onCollide)
     }, 100)
