@@ -1,3 +1,4 @@
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path')
 
@@ -33,6 +34,11 @@ module.exports = {
         path: path.resolve(__dirname, 'dist'),
     },
     plugins: [
+        new CopyWebpackPlugin({
+            patterns: [
+                { from: 'src/tone.wav' }
+            ]
+        }),
         new HtmlWebpackPlugin({
             externals: externals.reduce(
                 (scripts, external) => (

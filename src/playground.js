@@ -26,23 +26,31 @@ var createScene = function () {
         const now = Date.now()
         if (200 < now - sphere.lastCollisionTime) {
             // console.debug(`plane frequency factor = ${1 / collidedAgainst.object.scaling.x}`)
-            const frequencyFactor = collidedAgainst.object.scaling.x
+            const playbackRate = 8 * (1 / collidedAgainst.object.scaling.x)
+            sphere.tone.setPlaybackRate(playbackRate)
+            sphere.tone.play()
             sphere.lastCollisionTime = now
         }
     }
 
-    setInterval(() => {
-        let sphere = BABYLON.MeshBuilder.CreateSphere(`sphere`, { diameter: 0.5, segments: 32 }, scene)
-        sphere.position.set(-10, 12, 0)
-        sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 1 }, scene)
-        sphere.physicsImpostor.executeNativeFunction((world, physicsBody) => {
-            world.removeCollisionObject(physicsBody)
-            world.addRigidBody(physicsBody, 1, 2)
+    BABYLON.Engine.audioEngine.lock()
+    BABYLON.Engine.audioEngine.onAudioUnlockedObservable.addOnce(() => {
+        const tone = new BABYLON.Sound(`tone`, `tone.wav`, scene, () => {
+            setInterval(() => {
+                let sphere = BABYLON.MeshBuilder.CreateSphere(`sphere`, { diameter: 0.5, segments: 32 }, scene)
+                sphere.position.set(-10, 12, 0)
+                sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 1 }, scene)
+                sphere.physicsImpostor.executeNativeFunction((world, physicsBody) => {
+                    world.removeCollisionObject(physicsBody)
+                    world.addRigidBody(physicsBody, 1, 2)
+                })
+                sphere.physicsImpostor.registerOnPhysicsCollide(plane1.physicsImpostor, onCollide)
+                sphere.physicsImpostor.registerOnPhysicsCollide(plane2.physicsImpostor, onCollide)
+                sphere.lastCollisionTime = 0
+                sphere.tone = tone.clone(``)
+            }, 750)
         })
-        sphere.physicsImpostor.registerOnPhysicsCollide(plane1.physicsImpostor, onCollide)
-        sphere.physicsImpostor.registerOnPhysicsCollide(plane2.physicsImpostor, onCollide)
-        sphere.lastCollisionTime = 0
-    }, 500)
+    })
 
     return scene
 }
