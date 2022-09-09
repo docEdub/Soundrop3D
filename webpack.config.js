@@ -2,15 +2,15 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path')
 
 const externals = [
+    // {
+    //     name: 'ammo.js',
+    //     globalVarName: 'Ammo',
+    //     src: 'https://raw.githubusercontent.com/kripken/ammo.js/main/builds/ammo.js',
+    // },
     {
         name: 'babylonjs',
         globalVarName: 'BABYLON',
         src: 'https://cdn.babylonjs.com/babylon.js',
-    },
-    {
-        name: 'oimo',
-        globalVarName: 'OIMO',
-        src: 'https://cdn.babylonjs.com/Oimo.js',
     },
 ]
 
@@ -42,5 +42,11 @@ module.exports = {
             template: path.resolve(__dirname, 'src', 'index.html'),
             title: 'soundrop3d',
         }),
-    ]
+    ],
+    resolve: {
+        fallback: {
+            'fs': false,
+            'path': false, // ammo.js seems to also use path
+        }
+    }
 }

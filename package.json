@@ -11,7 +11,7 @@
         "webpack-dev-server": "^4.10.1"
     },
     "dependencies": {
-        "babylonjs": "^5.22.0",
-        "oimo": "^1.0.9"
+        "ammo.js": "github:kripken/ammo.js",
+        "babylonjs": "^5.22.0"
     }
 }
