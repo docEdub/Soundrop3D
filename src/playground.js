@@ -25,7 +25,8 @@ var createScene = function () {
         const sphere = collider.object
         const now = Date.now()
         if (200 < now - sphere.lastCollisionTime) {
-            console.debug(`plane frequency factor = ${1 / collidedAgainst.object.scaling.x}`)
+            // console.debug(`plane frequency factor = ${1 / collidedAgainst.object.scaling.x}`)
+            const frequencyFactor = collidedAgainst.object.scaling.x
             sphere.lastCollisionTime = now
         }
     }
