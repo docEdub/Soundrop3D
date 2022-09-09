@@ -1,6 +1,6 @@
 var createScene = function () {
     const scene = new BABYLON.Scene(engine)
-    scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(true, ammo))
+    scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
     var camera = new BABYLON.FreeCamera(`camera`, new BABYLON.Vector3(0, 5, -50), scene)
     camera.setTarget(BABYLON.Vector3.Zero())
