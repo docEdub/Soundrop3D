@@ -22,8 +22,11 @@ var createScene = function () {
     plane2.physicsImpostor =  new BABYLON.PhysicsImpostor(plane2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
 
     const onCollide = (collider, collidedAgainst, point) => {
-        if (collider.object.name != "") {
-            console.debug(`collider = ${collider.object.name}, collidedAgainst = ${collidedAgainst.object.name}, at point = ${point}`)
+        const sphere = collider.object
+        const now = Date.now()
+        if (200 < now - sphere.lastCollisionTime) {
+            console.debug(`plane frequency factor = ${1 / collidedAgainst.object.scaling.x}`)
+            sphere.lastCollisionTime = now
         }
     }
 
@@ -35,8 +38,9 @@ var createScene = function () {
             world.removeCollisionObject(physicsBody)
             world.addRigidBody(physicsBody, 1, 2)
         })
-        plane1.physicsImpostor.registerOnPhysicsCollide(sphere.physicsImpostor, onCollide)
-        plane2.physicsImpostor.registerOnPhysicsCollide(sphere.physicsImpostor, onCollide)
+        sphere.physicsImpostor.registerOnPhysicsCollide(plane1.physicsImpostor, onCollide)
+        sphere.physicsImpostor.registerOnPhysicsCollide(plane2.physicsImpostor, onCollide)
+        sphere.lastCollisionTime = 0
     }, 500)
 
     return scene
