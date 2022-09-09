@@ -2,8 +2,7 @@ var createScene = function () {
     const scene = new BABYLON.Scene(engine)
     scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
-    var camera = new BABYLON.FreeCamera(`camera`, new BABYLON.Vector3(0, 5, -50), scene)
-    camera.setTarget(BABYLON.Vector3.Zero())
+    const camera = new BABYLON.ArcRotateCamera(`camera`, -Math.PI / 2, Math.PI / 2, 50, BABYLON.Vector3.ZeroReadOnly)
     camera.attachControl(null, true)
 
     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene)
