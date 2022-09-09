@@ -1,8 +1,6 @@
 var createScene = function () {
     const scene = new BABYLON.Scene(engine)
     scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(true, ammo))
-    // const physicsEngine = scene.getPhysicsEngine();
-    // physicsEngine.setSubTimeStep(10);
 
     var camera = new BABYLON.FreeCamera(`camera`, new BABYLON.Vector3(0, 5, -50), scene)
     camera.setTarget(BABYLON.Vector3.Zero())
@@ -18,6 +16,12 @@ var createScene = function () {
     plane1.position.set(-7, 0, 0)
     plane1.physicsImpostor =  new BABYLON.PhysicsImpostor(plane1, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
     // plane1.physicsImpostor.physicsBody.shapes.collidesWith = 2
+    plane1.physicsImpostor.executeNativeFunction((world, physicsBody) => {
+        console.debug(world)
+        console.debug(physicsBody)
+        world.removeCollisionObject(physicsBody)
+        world.addCollisionObject(physicsBody, 2, 1)
+    })
 
     const plane2 = plane1.clone()
     plane2.name = "plane 2"
@@ -29,7 +33,7 @@ var createScene = function () {
 
     const onCollide = (collider, collidedAgainst, point) => {
         if (collider.object.name != "") {
-            console.debug(`collider = ${collider.object.name}, collidedAgainst = ${collidedAgainst.object.name}, at point = ${point}`)
+            // console.debug(`collider = ${collider.object.name}, collidedAgainst = ${collidedAgainst.object.name}, at point = ${point}`)
         }
     }
 
@@ -39,6 +43,11 @@ var createScene = function () {
         sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.95,  }, scene)
         // sphere.physicsImpostor.physicsBody.shapes.belongsTo = 2
         // sphere.physicsImpostor.physicsBody.shapes.collidesWith = 1
+        sphere.physicsImpostor.executeNativeFunction((world, physicsBody) => {
+            world.removeCollisionObject(physicsBody)
+            //world.addCollisionObject(physicsBody, 1, 1)
+            world.addRigidBody(physicsBody, 1, 2)
+        })
         plane1.physicsImpostor.registerOnPhysicsCollide(sphere.physicsImpostor, onCollide)
         plane2.physicsImpostor.registerOnPhysicsCollide(sphere.physicsImpostor, onCollide)
     }, 100)
