@@ -1,4 +1,8 @@
 var createScene = function () {
+    const ballPoolCount = 100
+    const ballStartPosition = new BABYLON.Vector3(-10, 12, 0)
+    const ballDropsPerMinute = 120
+
     const scene = new BABYLON.Scene(engine)
     scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
@@ -21,35 +25,76 @@ var createScene = function () {
     plane2.position.set(7, 0, 0)
     plane2.physicsImpostor =  new BABYLON.PhysicsImpostor(plane2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 1 }, scene)
 
-    const onCollide = (collider, collidedAgainst, point) => {
-        const sphere = collider.object
+    const onBallCollide = (ballCollider, planeCollider, point) => {
+        const ball = ballCollider.object
         const now = Date.now()
-        if (200 < now - sphere.lastCollisionTime) {
-            // console.debug(`plane frequency factor = ${1 / collidedAgainst.object.scaling.x}`)
-            const playbackRate = 8 * (1 / collidedAgainst.object.scaling.x)
-            sphere.tone.setPlaybackRate(playbackRate)
-            sphere.tone.play()
-            sphere.lastCollisionTime = now
+        if (200 < now - ball.lastCollisionTime) {
+            const playbackRate = 8 * (1 / planeCollider.object.scaling.x)
+            ball.tone.setPlaybackRate(playbackRate)
+            ball.tone.play()
+            ball.lastCollisionTime = now
         }
     }
+
+    const ballPool = new Array(ballPoolCount)
+    let ballsReady = false
 
     BABYLON.Engine.audioEngine.lock()
     BABYLON.Engine.audioEngine.onAudioUnlockedObservable.addOnce(() => {
         const tone = new BABYLON.Sound(`tone`, `tone.wav`, scene, () => {
-            setInterval(() => {
-                let sphere = BABYLON.MeshBuilder.CreateSphere(`sphere`, { diameter: 0.5, segments: 32 }, scene)
-                sphere.position.set(-10, 12, 0)
-                sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 1 }, scene)
-                sphere.physicsImpostor.executeNativeFunction((world, physicsBody) => {
-                    world.removeCollisionObject(physicsBody)
-                    world.addRigidBody(physicsBody, 1, 2)
+            for (let i = 0; i < ballPoolCount; i++) {
+                const ball = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: 0.5, segments: 32 }, scene)
+                ball.position.set(0, -1000, 0)
+
+                ball.physicsImpostor = new BABYLON.PhysicsImpostor(ball, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.9 }, scene)
+                ball.physicsImpostor.executeNativeFunction((world, body) => {
+                    world.removeCollisionObject(body)
+                    world.addRigidBody(body, 1, 2)
                 })
-                sphere.physicsImpostor.registerOnPhysicsCollide(plane1.physicsImpostor, onCollide)
-                sphere.physicsImpostor.registerOnPhysicsCollide(plane2.physicsImpostor, onCollide)
-                sphere.lastCollisionTime = 0
-                sphere.tone = tone.clone(``)
-            }, 750)
+                ball.physicsImpostor.registerOnPhysicsCollide(plane1.physicsImpostor, onBallCollide)
+                ball.physicsImpostor.registerOnPhysicsCollide(plane2.physicsImpostor, onBallCollide)
+                ball.lastCollisionTime = 0
+
+                ball.tone = tone.clone(``)
+
+                ballPool[i] = ball
+            }
+
+            const redMaterial = new BABYLON.StandardMaterial(`red`)
+            redMaterial.diffuseColor.set(1, 0.5, 0.5)
+            redMaterial.specularColor.set(1, 0.5, 0.5)
+            ballPool[0].material = redMaterial
+
+            ballsReady = true
         })
+    })
+
+
+    let ballPoolIndex = 0
+
+    const dropBall = () => {
+        if (!ballsReady) {
+            return
+        }
+
+        // console.debug(`dropping ball index ${ballPoolIndex}`)
+        const ball = ballPool[ballPoolIndex]
+        ball.physicsImpostor.setAngularVelocity(BABYLON.Vector3.ZeroReadOnly)
+        ball.physicsImpostor.setLinearVelocity(BABYLON.Vector3.ZeroReadOnly)
+        ball.position.copyFrom(ballStartPosition)
+
+        ballPoolIndex = (ballPoolIndex + 1) % ballPoolCount
+    }
+
+    let ballDropTimePeriodInMs = 1000 * (60 / ballDropsPerMinute)
+    let timeFromLastBallDropInMs = 0
+
+    scene.registerBeforeRender(() => {
+        timeFromLastBallDropInMs += engine.getDeltaTime()
+        if (ballDropTimePeriodInMs < timeFromLastBallDropInMs) {
+            timeFromLastBallDropInMs -= ballDropTimePeriodInMs
+            dropBall()
+        }
     })
 
     return scene
