@@ -1,5 +1,5 @@
 var createScene = function () {
-    const ballPoolCount = 100
+    const ballPoolCount = 200
     const ballStartPosition = new BABYLON.Vector3(-10, 12, 0)
     const ballDropsPerMinute = 120
 
