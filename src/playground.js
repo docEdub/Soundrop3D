@@ -118,17 +118,17 @@ var createScene = function () {
         })
     })
 
-    let ballPoolIndex = 0
+    let nextBallPoolIndex = 0
 
     const dropBall = () => {
         if (!ballsReady) {
             return
         }
 
-        // console.debug(`dropping ball index ${ballPoolIndex}`)
-        const ball = ballPool[ballPoolIndex]
+        // console.debug(`dropping ball index ${nextBallPoolIndex}`)
+        const ball = ballPool[nextBallPoolIndex]
         ball.drop()
-        ballPoolIndex = (ballPoolIndex + 1) % BallPoolCount
+        nextBallPoolIndex = (nextBallPoolIndex + 1) % BallPoolCount
     }
 
     let ballDropTimePeriodInMs = 1000 * (60 / BallDropsPerMinute)
