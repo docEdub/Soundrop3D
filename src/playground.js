@@ -88,6 +88,7 @@ var createScene = function () {
 
                     const tone = this.tone
                     tone.setPlaybackRate(64 * (1 / planeMesh.scaling.x))
+                    tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 100)
                     tone.play()
                 }
             }
