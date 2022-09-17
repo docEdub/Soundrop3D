@@ -2,6 +2,8 @@ var createScene = function () {
     const BallPoolCount = 200
     const BallDropsPerMinute = 120
 
+    const BallHueIncrement = 360 / BallPoolCount
+
     const scene = new BABYLON.Scene(engine)
     scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
@@ -15,6 +17,7 @@ var createScene = function () {
 
     class Ball {
         static StartPosition = new BABYLON.Vector3(-15, 15, 0)
+        static Hue = 0
 
         constructor(tone) {
             this._.tone = tone
@@ -27,6 +30,11 @@ var createScene = function () {
                 world.addRigidBody(body, 1, 2)
             })
             this._.mesh = mesh
+
+            const material = new BABYLON.StandardMaterial(``)
+            BABYLON.Color3.HSVtoRGBToRef(Ball.Hue, 0.75, 1, material.diffuseColor)
+            Ball.Hue += BallHueIncrement
+            mesh.material = material
         }
 
         addCollider = (physicsImposter) => {
