@@ -6,6 +6,7 @@ var createScene = function () {
 
     const scene = new BABYLON.Scene(engine)
     scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(false, ammo))
+    scene.getPhysicsEngine().setSubTimeStep(10)
 
     const camera = new BABYLON.ArcRotateCamera(`camera`, -Math.PI / 2, Math.PI / 2, 50, BABYLON.Vector3.ZeroReadOnly)
     camera.attachControl()
