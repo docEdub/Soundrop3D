@@ -25,7 +25,7 @@ var createScene = function () {
 
             const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: 0.5, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
-            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: 1 }, scene)
+            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: 0.99 }, scene)
             mesh.physicsImpostor.executeNativeFunction((world, body) => {
                 world.removeCollisionObject(body)
                 world.addRigidBody(body, 1, 2)
