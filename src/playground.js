@@ -229,10 +229,9 @@ var createScene = function () {
         if (!ballsReady) {
             return
         }
-        console.debug(`pointer event ...`)
+
         switch (pointerInfo.type) {
             case BABYLON.PointerEventTypes.POINTERDOWN:
-                console.debug(`pointer down ...`)
                 if (pointerInfo.pickInfo.hit) {
                     console.debug(`shift key = ${pointerInfo.event.shiftKey}`)
                     console.debug(`ctrl key = ${pointerInfo.event.ctrlKey}`)
@@ -246,10 +245,10 @@ var createScene = function () {
                         }
                     }
                 }
-                console.debug(`pointer down - done`)
+
                 break
+
             case BABYLON.PointerEventTypes.POINTERMOVE:
-                console.debug(`pointer move ...`)
                 if (planeBeingAdded) {
                     const pickInfo = scene.pick(scene.pointerX, scene.pointerY)
                     if (pickInfo.hit) {
@@ -257,15 +256,13 @@ var createScene = function () {
                         planeBeingAdded.endPoint = pickInfo.pickedPoint
                     }
                 }
-                console.debug(`pointer move - done`)
+
                 break
+
             case BABYLON.PointerEventTypes.POINTERUP:
-                console.debug(`pointer up ...`)
                 finishAddingPlane()
-                console.debug(`pointer up - done`)
                 break
         }
-        console.debug(`pointer event - done`)
     })
 
     //#endregion
