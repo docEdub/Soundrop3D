@@ -6,7 +6,7 @@ var createScene = function () {
     scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
     const camera = new BABYLON.ArcRotateCamera(`camera`, -Math.PI / 2, Math.PI / 2, 50, BABYLON.Vector3.ZeroReadOnly)
-    camera.attachControl(null, true)
+    camera.attachControl()
 
     const light = new BABYLON.HemisphericLight(`light`, new BABYLON.Vector3(0, 1, 0), scene)
     light.intensity = 0.7
@@ -14,14 +14,14 @@ var createScene = function () {
     //#region class Ball
 
     class Ball {
-        static StartPosition = new BABYLON.Vector3(-10, 12, 0)
+        static StartPosition = new BABYLON.Vector3(-15, 15, 0)
 
         constructor(tone) {
             this._.tone = tone
 
             const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: 0.5, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
-            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.95 }, scene)
+            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: 1 }, scene)
             mesh.physicsImpostor.executeNativeFunction((world, body) => {
                 world.removeCollisionObject(body)
                 world.addRigidBody(body, 1, 2)
@@ -96,13 +96,29 @@ var createScene = function () {
     planeMeshPrototype.isVisible = false
 
     class Plane {
+        static PlaneMeshMap = new WeakMap
+
         constructor(startPoint) {
             this._.startPoint.copyFrom(startPoint)
         }
 
         set endPoint(value) {
+            if (!this._.mesh) {
+                this._.initializeMesh()
+                Plane.PlaneMeshMap.set(this._.mesh, this)
+            }
             this._.endPoint.copyFrom(value)
-            this._.onEndPointChanged()
+            this._.resetPoints()
+        }
+
+        resetPoints = () => {
+            this._.resetPoints()
+        }
+
+        disable = () => {
+            Plane.PlaneMeshMap.delete(this._.mesh)
+            this._.disable()
+            this._ = null
         }
 
         _ = new class {
@@ -110,11 +126,16 @@ var createScene = function () {
             endPoint = new BABYLON.Vector3
             mesh = null
 
-            onEndPointChanged = () => {
-                if (!this.mesh) {
-                    this.mesh = planeMeshPrototype.clone(`plane`)
+            initializeMesh = () => {
+                const mesh = this.mesh = planeMeshPrototype.clone(`plane`)
+                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.PlaneImpostor, { mass: 0, friction: 0, restitution: 1 }, scene)
+                mesh.isVisible = true
+                for (let i = 0; i < ballPool.length; i++) {
+                    ballPool[i].addCollider(mesh.physicsImpostor)
                 }
+            }
 
+            resetPoints = () => {
                 const mesh = this.mesh
                 mesh.scaling.x = BABYLON.Vector3.Distance(this.startPoint, this.endPoint)
 
@@ -126,12 +147,16 @@ var createScene = function () {
                 const angle = -Math.atan2(this.endPoint.y - this.startPoint.y, this.endPoint.x - this.startPoint.x)
                 mesh.rotateAround(mesh.position, BABYLON.Vector3.RightHandedForwardReadOnly, angle)
 
-                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.PlaneImpostor, { mass: 0, restitution: 1 }, scene)
-                mesh.isVisible = true
+                mesh.physicsImpostor.forceUpdate()
+            }
 
+            disable = () => {
+                const mesh = this.mesh
                 for (let i = 0; i < ballPool.length; i++) {
-                    ballPool[i].addCollider(mesh.physicsImpostor)
+                    ballPool[i].removeCollider(mesh.physicsImpostor)
                 }
+                mesh.position.set(0, 0, -100000)
+                mesh.isVisible = false
             }
         }
     }
@@ -157,9 +182,6 @@ var createScene = function () {
             }
 
             ballsReady = true
-
-            addPlane(new BABYLON.Vector3(-6, 0, 0), new BABYLON.Vector3(-20,  10, 0))
-            addPlane(new BABYLON.Vector3( 4, 0, 0), new BABYLON.Vector3( 20,  10, 0))
         })
     })
 
@@ -186,6 +208,67 @@ var createScene = function () {
             dropBall()
         }
     })
+
+    //#region Pointer handling
+
+    const hitPointPlaneForDrawing = BABYLON.MeshBuilder.CreatePlane(`drawing plane`, { size: 40 })
+    let planeBeingAdded = null
+
+    const startAddingPlane = (startPoint) => {
+        startPoint.z = 0
+        planeBeingAdded = new Plane(startPoint)
+        camera.detachControl()
+    }
+
+    const finishAddingPlane = () => {
+        planeBeingAdded = null
+        camera.attachControl()
+    }
+
+    scene.onPointerObservable.add((pointerInfo) => {
+        if (!ballsReady) {
+            return
+        }
+        console.debug(`pointer event ...`)
+        switch (pointerInfo.type) {
+            case BABYLON.PointerEventTypes.POINTERDOWN:
+                console.debug(`pointer down ...`)
+                if (pointerInfo.pickInfo.hit) {
+                    console.debug(`shift key = ${pointerInfo.event.shiftKey}`)
+                    console.debug(`ctrl key = ${pointerInfo.event.ctrlKey}`)
+                    if (pointerInfo.event.shiftKey) {
+                        startAddingPlane(pointerInfo.pickInfo.pickedPoint)
+                    }
+                    else if (pointerInfo.event.ctrlKey) {
+                        const pickedMesh = pointerInfo.pickInfo.pickedMesh
+                        if (Plane.PlaneMeshMap.has(pickedMesh)) {
+                            Plane.PlaneMeshMap.get(pickedMesh).disable()
+                        }
+                    }
+                }
+                console.debug(`pointer down - done`)
+                break
+            case BABYLON.PointerEventTypes.POINTERMOVE:
+                console.debug(`pointer move ...`)
+                if (planeBeingAdded) {
+                    const pickInfo = scene.pick(scene.pointerX, scene.pointerY)
+                    if (pickInfo.hit) {
+                        pickInfo.pickedPoint.z = 0
+                        planeBeingAdded.endPoint = pickInfo.pickedPoint
+                    }
+                }
+                console.debug(`pointer move - done`)
+                break
+            case BABYLON.PointerEventTypes.POINTERUP:
+                console.debug(`pointer up ...`)
+                finishAddingPlane()
+                console.debug(`pointer up - done`)
+                break
+        }
+        console.debug(`pointer event - done`)
+    })
+
+    //#endregion
 
     return scene
 }
