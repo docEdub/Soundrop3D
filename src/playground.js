@@ -1,14 +1,16 @@
 var createScene = function () {
+    const BoundsWidth = 5
+    const BoundsHeight = BoundsWidth
     const BallPoolCount = 200
-    const BallDropsPerMinute = 60
+    const BpmDefault = 60
 
     const BallHueIncrement = 360 / BallPoolCount
 
     const scene = new BABYLON.Scene(engine)
-    scene.enablePhysics(new BABYLON.Vector3(0, -4, 0), new BABYLON.AmmoJSPlugin(false, ammo))
+    scene.enablePhysics(new BABYLON.Vector3(0, -1, 0), new BABYLON.AmmoJSPlugin(false, ammo))
     scene.getPhysicsEngine().setSubTimeStep(10)
 
-    const camera = new BABYLON.ArcRotateCamera(`camera`, -Math.PI / 2, Math.PI / 2, 50, BABYLON.Vector3.ZeroReadOnly)
+    const camera = new BABYLON.ArcRotateCamera(`camera`, -Math.PI / 2, Math.PI / 2, BoundsWidth * 1.5, BABYLON.Vector3.ZeroReadOnly)
     camera.attachControl()
 
     const light = new BABYLON.HemisphericLight(`light`, new BABYLON.Vector3(0, 1, 0), scene)
@@ -17,13 +19,13 @@ var createScene = function () {
     //#region class Ball
 
     class Ball {
-        static StartPosition = new BABYLON.Vector3(-15, 15, 0)
+        static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
         static Hue = 0
 
         constructor(tone) {
             this._.tone = tone
 
-            const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: 0.5, segments: 32 }, scene)
+            const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BoundsWidth / 80, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
             mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: 0.9 }, scene)
             mesh.physicsImpostor.executeNativeFunction((world, body) => {
@@ -87,8 +89,8 @@ var createScene = function () {
                     this.lastCollisionTime = now
 
                     const tone = this.tone
-                    tone.setPlaybackRate(64 * (1 / planeMesh.scaling.x))
-                    tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 100)
+                    tone.setPlaybackRate(32 * (1 / planeMesh.scaling.x))
+                    tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 25)
                     tone.play()
                 }
             }
@@ -208,7 +210,7 @@ var createScene = function () {
         nextBallPoolIndex = (nextBallPoolIndex + 1) % BallPoolCount
     }
 
-    let ballDropTimePeriodInMs = 1000 * (60 / BallDropsPerMinute)
+    let ballDropTimePeriodInMs = 1000 * (60 / BpmDefault)
     let timeFromLastBallDropInMs = 0
 
     scene.registerBeforeRender(() => {
@@ -221,7 +223,7 @@ var createScene = function () {
 
     //#region Pointer handling
 
-    const hitPointPlaneForDrawing = BABYLON.MeshBuilder.CreatePlane(`drawing plane`, { size: 40 })
+    const hitPointPlaneForDrawing = BABYLON.MeshBuilder.CreatePlane(`drawing plane`, { width: BoundsWidth, height: BoundsHeight })
     let planeBeingAdded = null
 
     const startAddingPlane = (startPoint) => {
@@ -274,6 +276,69 @@ var createScene = function () {
                 break
         }
     })
+
+    //#endregion
+
+
+    //#region GUI
+
+    new class Gui {
+        constructor() {
+        }
+
+        _ = new class {
+            constructor() {
+                const manager = new BABYLON.GUI.GUI3DManager(scene)
+                this.manager = manager
+
+                const mainPanel = new BABYLON.GUI.StackPanel3D
+                manager.addControl(mainPanel)
+                mainPanel.isVertical = false
+                mainPanel.position.y = BoundsHeight / 2 + 0.1
+                mainPanel.margin = 0.5
+                this.mainPanel = mainPanel
+
+                const bpmTextButton = new BABYLON.GUI.Button3D(`gui.bpm.textButton`)
+                mainPanel.addControl(bpmTextButton)
+                bpmTextButton.node.isPickable = false
+                bpmTextButton.scaling.set(0.3, 0.2, 0.1)
+
+                const bpmText = new BABYLON.GUI.TextBlock(`gui.bpm.text`)
+                bpmTextButton.content = bpmText
+                bpmText.color = `white`
+                bpmText.fontSize = 24
+                bpmText.text = BpmDefault
+                bpmText.scaleX = 1 / bpmTextButton.scaling.x
+                bpmText.scaleY = 1 / bpmTextButton.scaling.y
+
+                console.debug(bpmTextButton.mesh.material)
+                bpmTextButton.mesh.material.alphaCutOff = 0
+
+                const bpmSlider = new BABYLON.GUI.Slider3D(`gui.bpm.slider`)
+                mainPanel.addControl(bpmSlider)
+                bpmSlider.position.z = 0.065
+                bpmSlider.minimum = 40
+                bpmSlider.maximum = 240
+                bpmSlider.value = BpmDefault
+                bpmSlider.onValueChangedObservable.add((value) => {
+                    let bpm = Math.round(value)
+                    bpmText.text = bpm
+                    ballDropTimePeriodInMs = 1000 * (60 / bpm)
+                })
+                this.bpmSlider = bpmSlider
+
+                mainPanel.isVertical = true
+                mainPanel.isVertical = false
+                mainPanel.updateLayout()
+            }
+
+            manager = null
+            mainPanel = null
+
+            bpmSlider = null
+            bpmText = null
+        }
+    }
 
     //#endregion
 

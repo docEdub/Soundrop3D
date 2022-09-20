@@ -13,6 +13,16 @@ const externals = [
         globalVarName: 'BABYLON',
         src: 'https://cdn.babylonjs.com/babylon.js',
     },
+    {
+        name: 'babylonjs-gui',
+        globalVarName: 'BABYLON',
+        src: 'https://cdn.babylonjs.com/gui/babylon.gui.min.js',
+    },
+    {
+        name: 'babylonjs-loaders',
+        globalVarName: 'BABYLON',
+        src: 'https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js',
+    }
 ]
 
 module.exports = {
