@@ -336,9 +336,9 @@ var createScene = function () {
 
                 const bpmTextButton = new BABYLON.GUI.Button3D(`gui.bpm.text.button`)
                 manager.addControl(bpmTextButton)
+                bpmTextButton.scaling.set(0.5, 0.2, 0.1)
                 bpmTextButton.node.isPickable = false
                 bpmTextButton.mesh.material.diffuseColor.set(0.75, 0.75, 0.75)
-                bpmTextButton.scaling.set(0.5, 0.2, 0.1)
 
                 const bpmText = new BABYLON.GUI.TextBlock(`gui.bpm.text`)
                 bpmTextButton.content = bpmText
