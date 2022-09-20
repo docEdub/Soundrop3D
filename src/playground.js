@@ -307,14 +307,8 @@ var createScene = function () {
             constructor() {
                 const manager = new BABYLON.GUI.GUI3DManager(scene)
 
-                const mainPanel = new BABYLON.GUI.StackPanel3D
-                manager.addControl(mainPanel)
-                mainPanel.isVertical = false
-                mainPanel.position.y = BoundsHeight / 2 + 0.1
-                mainPanel.margin = 0.5
-
                 const bpmDownButton = new BABYLON.GUI.Button3D(`gui.bpm.downButton`)
-                mainPanel.addControl(bpmDownButton)
+                manager.addControl(bpmDownButton)
                 bpmDownButton.scaling.set(0.2, 0.2, 0.1)
                 bpmDownButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.downButton.text`, `-`)
                 bpmDownButton.content.fontSize = 24
@@ -325,9 +319,10 @@ var createScene = function () {
                     setBpm(bpm - 1)
                     this.updateUiText()
                 })
+                global.bpmDownButton = bpmDownButton
 
                 const bpmUpButton = new BABYLON.GUI.Button3D(`gui.bpm.upButton`)
-                mainPanel.addControl(bpmUpButton)
+                manager.addControl(bpmUpButton)
                 bpmUpButton.scaling.set(0.2, 0.2, 0.1)
                 bpmUpButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.upButton.text`, `+`)
                 bpmUpButton.content.fontSize = 24
@@ -340,8 +335,9 @@ var createScene = function () {
                 })
 
                 const bpmTextButton = new BABYLON.GUI.Button3D(`gui.bpm.text.button`)
-                mainPanel.addControl(bpmTextButton)
+                manager.addControl(bpmTextButton)
                 bpmTextButton.node.isPickable = false
+                bpmTextButton.mesh.material.diffuseColor.set(0.75, 0.75, 0.75)
                 bpmTextButton.scaling.set(0.3, 0.2, 0.1)
 
                 const bpmText = new BABYLON.GUI.TextBlock(`gui.bpm.text`)
@@ -354,7 +350,7 @@ var createScene = function () {
                 this.bpmText = bpmText
 
                 const bpmSlider = new BABYLON.GUI.Slider3D(`gui.bpm.slider`)
-                mainPanel.addControl(bpmSlider)
+                manager.addControl(bpmSlider)
                 bpmSlider.position.z = 0.065
                 bpmSlider.minimum = 40
                 bpmSlider.maximum = 240
@@ -364,14 +360,40 @@ var createScene = function () {
                     this.updateUiText()
                 })
                 this.bpmSlider = bpmSlider
+                global.bpmSlider = bpmSlider
 
-                mainPanel.isVertical = true
-                mainPanel.isVertical = false
-                mainPanel.updateLayout()
+                scene.executeWhenReady(() => {
+                    this.addControl(bpmDownButton)
+                    this.addControl(bpmUpButton)
+                    this.addControl(bpmTextButton)
+                    this.addControl(bpmSlider, 0.9)
+                })
             }
 
             bpmSlider = null
             bpmText = null
+
+            get x() { return -BoundsWidth / 2 }
+            get y() { return BoundsHeight / 2 + 0.1 }
+
+            margin = 0.01
+            xForNextControl = this.x
+
+            addControl = (control, width) => {
+                const mesh = control.mesh
+
+                if (width === undefined) {
+                    const bounds = mesh.getBoundingInfo()
+                    width = (bounds.maximum.x - bounds.minimum.x) * mesh.scaling.x
+                }
+
+                console.log(`Adding control ${control.name}. width = ${width}`)
+
+                control.position.x = this.xForNextControl + width / 2
+                control.position.y = this.y
+
+                this.xForNextControl += width + this.margin
+            }
 
             updateUiText = () => {
                 this.bpmSlider.value = bpm
