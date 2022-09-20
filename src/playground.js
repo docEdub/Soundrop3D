@@ -338,13 +338,13 @@ var createScene = function () {
                 manager.addControl(bpmTextButton)
                 bpmTextButton.node.isPickable = false
                 bpmTextButton.mesh.material.diffuseColor.set(0.75, 0.75, 0.75)
-                bpmTextButton.scaling.set(0.3, 0.2, 0.1)
+                bpmTextButton.scaling.set(0.5, 0.2, 0.1)
 
                 const bpmText = new BABYLON.GUI.TextBlock(`gui.bpm.text`)
                 bpmTextButton.content = bpmText
                 bpmText.color = `white`
                 bpmText.fontSize = 24
-                bpmText.text = BpmDefault
+                bpmText.text = `${BpmDefault} bpm`
                 bpmText.scaleX = 1 / bpmTextButton.scaling.x
                 bpmText.scaleY = 1 / bpmTextButton.scaling.y
                 this.bpmText = bpmText
@@ -397,7 +397,7 @@ var createScene = function () {
 
             updateUiText = () => {
                 this.bpmSlider.value = bpm
-                this.bpmText.text = bpm
+                this.bpmText.text = `${bpm} bpm`
             }
         }
     }
