@@ -399,6 +399,25 @@ var createScene = function () {
 
     //#endregion
 
+    //#region XR
+
+    const startXr = async () => {
+        try {
+            const xr = await scene.createDefaultXRExperienceAsync({})
+            if (!!xr && !!xr.enterExitUI) {
+                xr.enterExitUI.activeButtonChangedObservable.add((eventData) => {
+                    BABYLON.Engine.audioEngine.unlock()
+                })
+            }
+        }
+        catch(e) {
+            console.debug(e)
+        }
+    }
+    startXr()
+
+    //#endregion
+
     return scene
 }
 
