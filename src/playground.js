@@ -362,12 +362,10 @@ var createScene = function () {
                 this.bpmSlider = bpmSlider
                 global.bpmSlider = bpmSlider
 
-                scene.executeWhenReady(() => {
-                    this.addControl(bpmDownButton)
-                    this.addControl(bpmUpButton)
-                    this.addControl(bpmTextButton)
-                    this.addControl(bpmSlider, 0.9)
-                })
+                this.addControl(bpmDownButton)
+                this.addControl(bpmUpButton)
+                this.addControl(bpmTextButton)
+                this.addControl(bpmSlider, 0.9)
             }
 
             bpmSlider = null
@@ -380,14 +378,11 @@ var createScene = function () {
             xForNextControl = this.x
 
             addControl = (control, width) => {
-                const mesh = control.mesh
-
                 if (width === undefined) {
+                    const mesh = control.mesh
                     const bounds = mesh.getBoundingInfo()
                     width = (bounds.maximum.x - bounds.minimum.x) * mesh.scaling.x
                 }
-
-                console.log(`Adding control ${control.name}. width = ${width}`)
 
                 control.position.x = this.xForNextControl + width / 2
                 control.position.y = this.y
