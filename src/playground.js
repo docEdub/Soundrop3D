@@ -3,6 +3,8 @@ var createScene = function () {
     const BoundsHeight = BoundsWidth
     const BallPoolCount = 200
     const BpmDefault = 60
+    const BpmMin = 40
+    const BpmMax = 240
 
     const BallHueIncrement = 360 / BallPoolCount
 
@@ -215,7 +217,14 @@ var createScene = function () {
         nextBallPoolIndex = (nextBallPoolIndex + 1) % BallPoolCount
     }
 
+    let bpm = BpmDefault
     let ballDropTimePeriodInMs = 1000 * (60 / BpmDefault)
+
+    const setBpm = (value) => {
+        bpm = Math.max(BpmMin, Math.min(value, BpmMax))
+        ballDropTimePeriodInMs = 1000 * (60 / BpmDefault)
+    }
+
     let timeFromLastBallDropInMs = 0
 
     scene.registerBeforeRender(() => {
@@ -297,16 +306,40 @@ var createScene = function () {
         _ = new class {
             constructor() {
                 const manager = new BABYLON.GUI.GUI3DManager(scene)
-                this.manager = manager
 
                 const mainPanel = new BABYLON.GUI.StackPanel3D
                 manager.addControl(mainPanel)
                 mainPanel.isVertical = false
                 mainPanel.position.y = BoundsHeight / 2 + 0.1
                 mainPanel.margin = 0.5
-                this.mainPanel = mainPanel
 
-                const bpmTextButton = new BABYLON.GUI.Button3D(`gui.bpm.textButton`)
+                const bpmDownButton = new BABYLON.GUI.Button3D(`gui.bpm.downButton`)
+                mainPanel.addControl(bpmDownButton)
+                bpmDownButton.scaling.set(0.2, 0.2, 0.1)
+                bpmDownButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.downButton.text`, `-`)
+                bpmDownButton.content.fontSize = 24
+                bpmDownButton.content.color = `white`
+                bpmDownButton.content.scaleX = 1 / bpmDownButton.scaling.x
+                bpmDownButton.content.scaleY = 1 / bpmDownButton.scaling.y
+                bpmDownButton.onPointerClickObservable.add(() => {
+                    setBpm(bpm - 1)
+                    this.updateUiText()
+                })
+
+                const bpmUpButton = new BABYLON.GUI.Button3D(`gui.bpm.upButton`)
+                mainPanel.addControl(bpmUpButton)
+                bpmUpButton.scaling.set(0.2, 0.2, 0.1)
+                bpmUpButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.upButton.text`, `+`)
+                bpmUpButton.content.fontSize = 24
+                bpmUpButton.content.color = `white`
+                bpmUpButton.content.scaleX = 1 / bpmUpButton.scaling.x
+                bpmUpButton.content.scaleY = 1 / bpmUpButton.scaling.y
+                bpmUpButton.onPointerClickObservable.add(() => {
+                    setBpm(bpm + 1)
+                    this.updateUiText()
+                })
+
+                const bpmTextButton = new BABYLON.GUI.Button3D(`gui.bpm.text.button`)
                 mainPanel.addControl(bpmTextButton)
                 bpmTextButton.node.isPickable = false
                 bpmTextButton.scaling.set(0.3, 0.2, 0.1)
@@ -318,9 +351,7 @@ var createScene = function () {
                 bpmText.text = BpmDefault
                 bpmText.scaleX = 1 / bpmTextButton.scaling.x
                 bpmText.scaleY = 1 / bpmTextButton.scaling.y
-
-                console.debug(bpmTextButton.mesh.material)
-                bpmTextButton.mesh.material.alphaCutOff = 0
+                this.bpmText = bpmText
 
                 const bpmSlider = new BABYLON.GUI.Slider3D(`gui.bpm.slider`)
                 mainPanel.addControl(bpmSlider)
@@ -329,9 +360,8 @@ var createScene = function () {
                 bpmSlider.maximum = 240
                 bpmSlider.value = BpmDefault
                 bpmSlider.onValueChangedObservable.add((value) => {
-                    let bpm = Math.round(value)
-                    bpmText.text = bpm
-                    ballDropTimePeriodInMs = 1000 * (60 / bpm)
+                    setBpm(Math.round(value))
+                    this.updateUiText()
                 })
                 this.bpmSlider = bpmSlider
 
@@ -340,11 +370,13 @@ var createScene = function () {
                 mainPanel.updateLayout()
             }
 
-            manager = null
-            mainPanel = null
-
             bpmSlider = null
             bpmText = null
+
+            updateUiText = () => {
+                this.bpmSlider.value = bpm
+                this.bpmText.text = bpm
+            }
         }
     }
 
