@@ -222,7 +222,7 @@ var createScene = function () {
 
     const setBpm = (value) => {
         bpm = Math.max(BpmMin, Math.min(value, BpmMax))
-        ballDropTimePeriodInMs = 1000 * (60 / BpmDefault)
+        ballDropTimePeriodInMs = 1000 * (60 / bpm)
     }
 
     let timeFromLastBallDropInMs = 0
