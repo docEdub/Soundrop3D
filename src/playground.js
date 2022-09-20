@@ -104,6 +104,7 @@ var createScene = function () {
 
     const planeMeshPrototype = BABYLON.MeshBuilder.CreateBox(`plane mesh prototype`, { size: 1 })
     planeMeshPrototype.scaling.z = 0.1
+    planeMeshPrototype.isPickable = false
     planeMeshPrototype.isVisible = false
 
     class Plane {
@@ -120,6 +121,11 @@ var createScene = function () {
             }
             this._.endPoint.copyFrom(value)
             this._.resetPoints()
+        }
+
+        freeze = () => {
+            this._.mesh.isPickable = true
+            this._.mesh.freezeWorldMatrix()
         }
 
         resetPoints = () => {
@@ -232,6 +238,9 @@ var createScene = function () {
     }
 
     const finishAddingPlane = () => {
+        if (planeBeingAdded) {
+            planeBeingAdded.freeze()
+        }
         planeBeingAdded = null
         camera.attachControl()
     }
