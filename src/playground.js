@@ -3,6 +3,7 @@ var createScene = function () {
 
     const BoundsWidth = 5
     const BoundsHeight = BoundsWidth
+    const BallRadius = BoundsWidth / 40
     const BallPoolCount = 200
     const BpmDefault = 60
     const BpmMin = 40
@@ -59,7 +60,7 @@ var createScene = function () {
         constructor(tone) {
             this._.tone = tone
 
-            const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BoundsWidth / 80, segments: 32 }, scene)
+            const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
             mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: 0.9 }, scene)
             mesh.physicsImpostor.executeNativeFunction((world, body) => {
