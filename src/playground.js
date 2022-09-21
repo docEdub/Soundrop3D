@@ -1,4 +1,6 @@
 var createScene = function () {
+    //#region Constants
+
     const BoundsWidth = 5
     const BoundsHeight = BoundsWidth
     const BallPoolCount = 200
@@ -10,6 +12,10 @@ var createScene = function () {
     const HalfBoundsHeight = BoundsHeight / 2
     const BallHueIncrement = 360 / BallPoolCount
 
+    //#endregion
+
+    //#region Scene setup
+
     const scene = new BABYLON.Scene(engine)
     scene.enablePhysics(new BABYLON.Vector3(0, -1, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
@@ -18,6 +24,8 @@ var createScene = function () {
 
     const light = new BABYLON.HemisphericLight(`light`, new BABYLON.Vector3(0, 1, 0), scene)
     light.intensity = 0.7
+
+    //#endregion
 
     //#region class Border
     const border = new class Border {
@@ -123,9 +131,9 @@ var createScene = function () {
         }
     }
 
-    //#endregion
-
     const ballPool = new Array(BallPoolCount)
+
+    //#endregion
 
     //#region class Plane
 
