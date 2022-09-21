@@ -209,15 +209,9 @@ var createScene = function () {
 
     //#endregion
 
-    let ballsReady = false
+    //#region Ball handling
 
-    const addPlane = (fromPoint, toPoint) => {
-        if (!ballsReady) {
-            return
-        }
-        const plane = new Plane(fromPoint)
-        plane.endPoint = toPoint
-    }
+    let ballsReady = false
 
     BABYLON.Engine.audioEngine.lock()
     BABYLON.Engine.audioEngine.onAudioUnlockedObservable.addOnce(() => {
@@ -261,6 +255,8 @@ var createScene = function () {
             dropBall()
         }
     })
+
+    //#endregion
 
     //#region GUI
 
