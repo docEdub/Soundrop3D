@@ -235,6 +235,199 @@ var createScene = function () {
         }
     })
 
+    //#region GUI
+
+    const gui = new class Gui {
+        constructor() {
+        }
+
+        get mode() {
+            return this._.mode
+        }
+
+        _ = new class {
+            constructor() {
+                const manager = new BABYLON.GUI.GUI3DManager(scene)
+
+                const bpmDownButton = new BABYLON.GUI.Button3D(`gui.bpm.downButton`)
+                manager.addControl(bpmDownButton)
+                bpmDownButton.scaling.set(0.2, 0.2, 0.1)
+                bpmDownButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.downButton.text`, `-`)
+                bpmDownButton.content.fontSize = 24
+                bpmDownButton.content.color = `white`
+                bpmDownButton.content.scaleX = 1 / bpmDownButton.scaling.x
+                bpmDownButton.content.scaleY = 1 / bpmDownButton.scaling.y
+                bpmDownButton.onPointerClickObservable.add(() => {
+                    setBpm(bpm - 1)
+                    this.updateUiText()
+                })
+                this.addTopLeftControl(bpmDownButton)
+
+                const bpmUpButton = new BABYLON.GUI.Button3D(`gui.bpm.upButton`)
+                manager.addControl(bpmUpButton)
+                bpmUpButton.scaling.set(0.2, 0.2, 0.1)
+                bpmUpButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.upButton.text`, `+`)
+                bpmUpButton.content.fontSize = 24
+                bpmUpButton.content.color = `white`
+                bpmUpButton.content.scaleX = 1 / bpmUpButton.scaling.x
+                bpmUpButton.content.scaleY = 1 / bpmUpButton.scaling.y
+                bpmUpButton.onPointerClickObservable.add(() => {
+                    setBpm(bpm + 1)
+                    this.updateUiText()
+                })
+                this.addTopLeftControl(bpmUpButton)
+
+                const bpmTextButton = new BABYLON.GUI.Button3D(`gui.bpm.text.button`)
+                manager.addControl(bpmTextButton)
+                bpmTextButton.scaling.set(0.5, 0.2, 0.1)
+                bpmTextButton.node.isPickable = false
+                bpmTextButton.mesh.material.diffuseColor.set(0.75, 0.75, 0.75)
+                this.addTopLeftControl(bpmTextButton)
+
+                const bpmText = new BABYLON.GUI.TextBlock(`gui.bpm.text`)
+                bpmTextButton.content = bpmText
+                bpmText.color = `white`
+                bpmText.fontSize = 24
+                bpmText.text = `${BpmDefault} bpm`
+                bpmText.scaleX = 1 / bpmTextButton.scaling.x
+                bpmText.scaleY = 1 / bpmTextButton.scaling.y
+                this.bpmText = bpmText
+
+                const bpmSlider = new BABYLON.GUI.Slider3D(`gui.bpm.slider`)
+                manager.addControl(bpmSlider)
+                bpmSlider.position.z = 0.065
+                bpmSlider.minimum = 40
+                bpmSlider.maximum = 240
+                bpmSlider.value = BpmDefault
+                bpmSlider.onValueChangedObservable.add((value) => {
+                    setBpm(Math.round(value))
+                    this.updateUiText()
+                })
+                this.addTopLeftControl(bpmSlider, 0.9)
+                this.bpmSlider = bpmSlider
+
+                const modeCameraButton = new BABYLON.GUI.Button3D(`gui.mode.cameraButton`)
+                manager.addControl(modeCameraButton)
+                modeCameraButton.scaling.set(0.6, 0.2, 0.1)
+                modeCameraButton.content = new BABYLON.GUI.TextBlock(`gui.mode.cameraButton.text`, `Camera`)
+                modeCameraButton.content.color = `white`
+                modeCameraButton.content.fontSize = 24
+                modeCameraButton.content.scaleX = 1 / modeCameraButton.scaling.x
+                modeCameraButton.content.scaleY = 1 / modeCameraButton.scaling.y
+                modeCameraButton.onPointerClickObservable.add(() => { this.switchToCameraMode() })
+                this.addTopRightControl(modeCameraButton)
+                this.modeCameraButton = modeCameraButton
+
+                const modeEraseButton = new BABYLON.GUI.Button3D(`gui.mode.eraseButton`)
+                manager.addControl(modeEraseButton)
+                modeEraseButton.scaling.set(0.6, 0.2, 0.1)
+                modeEraseButton.content = new BABYLON.GUI.TextBlock(`gui.mode.eraseButton.text`, `Erase`)
+                modeEraseButton.content.color = `white`
+                modeEraseButton.content.fontSize = 24
+                modeEraseButton.content.scaleX = 1 / modeEraseButton.scaling.x
+                modeEraseButton.content.scaleY = 1 / modeEraseButton.scaling.y
+                modeEraseButton.onPointerClickObservable.add(() => { this.switchToEraseMode() })
+                this.addTopRightControl(modeEraseButton)
+                this.modeEraseButton = modeEraseButton
+
+                const modeDrawButton = new BABYLON.GUI.Button3D(`gui.mode.drawButton`)
+                manager.addControl(modeDrawButton)
+                modeDrawButton.scaling.set(0.6, 0.2, 0.1)
+                modeDrawButton.content = new BABYLON.GUI.TextBlock(`gui.mode.drawButton.text`, `Draw`)
+                modeDrawButton.content.color = `white`
+                modeDrawButton.content.fontSize = 24
+                modeDrawButton.content.scaleX = 1 / modeDrawButton.scaling.x
+                modeDrawButton.content.scaleY = 1 / modeDrawButton.scaling.y
+                modeDrawButton.onPointerClickObservable.add(() => { this.switchToDrawMode() })
+                this.addTopRightControl(modeDrawButton)
+                this.modeDrawButton = modeDrawButton
+
+                this.switchToDrawMode()
+            }
+
+            bpmSlider = null
+            bpmText = null
+            modeDrawButton = null
+            modeEraseButton = null
+            modeCameraButton = null
+
+            get xLeft() { return -BoundsWidth / 2 }
+            get yTop() { return BoundsHeight / 2 + 0.1 }
+
+            margin = 0.01
+            xForNextTopLeftControl = this.xLeft
+            xForNextTopRightControl = this.xLeft + BoundsWidth
+
+            mode = ``
+
+            addTopLeftControl = (control, width) => {
+                if (width === undefined) {
+                    const mesh = control.mesh
+                    const bounds = mesh.getBoundingInfo()
+                    width = (bounds.maximum.x - bounds.minimum.x) * mesh.scaling.x
+                }
+
+                control.position.x = this.xForNextTopLeftControl + width / 2
+                control.position.y = this.yTop
+
+                this.xForNextTopLeftControl += width + this.margin
+            }
+
+            addTopRightControl = (control, width) => {
+                if (width === undefined) {
+                    const mesh = control.mesh
+                    const bounds = mesh.getBoundingInfo()
+                    width = (bounds.maximum.x - bounds.minimum.x) * mesh.scaling.x
+                }
+
+                control.position.x = this.xForNextTopRightControl - width / 2
+                control.position.y = this.yTop
+
+                this.xForNextTopRightControl -= width + this.margin
+            }
+
+            switchToDrawMode = () => {
+                this.mode = `DrawMode`
+                this.updateUiText()
+                camera.detachControl()
+            }
+
+            switchToEraseMode = () => {
+                this.mode = `EraseMode`
+                this.updateUiText()
+                camera.detachControl()
+            }
+
+            switchToCameraMode = () => {
+                this.mode = `CameraMode`
+                this.updateUiText()
+                camera.attachControl()
+            }
+
+            updateUiText = () => {
+                this.bpmSlider.value = bpm
+                this.bpmText.text = `${bpm} bpm`
+
+                this.modeDrawButton.mesh.material.diffuseColor.set(0.5, 0.5, 0.5)
+                this.modeEraseButton.mesh.material.diffuseColor.set(0.5, 0.5, 0.5)
+                this.modeCameraButton.mesh.material.diffuseColor.set(0.5, 0.5, 0.5)
+                let currentModeButton = null
+                if (this.mode === `DrawMode`) {
+                    currentModeButton = this.modeDrawButton
+                }
+                if (this.mode === `EraseMode`) {
+                    currentModeButton = this.modeEraseButton
+                }
+                if (this.mode === `CameraMode`) {
+                    currentModeButton = this.modeCameraButton
+                }
+                currentModeButton.mesh.material.diffuseColor.set(0.9, 0.9, 0.9)
+            }
+        }
+    }
+
+    //#endregion
+
     //#region Pointer handling
 
     const hitPointPlaneForDrawing = BABYLON.MeshBuilder.CreatePlane(`drawing plane`, { width: BoundsWidth, height: BoundsHeight })
@@ -243,7 +436,6 @@ var createScene = function () {
     const startAddingPlane = (startPoint) => {
         startPoint.z = 0
         planeBeingAdded = new Plane(startPoint)
-        camera.detachControl()
     }
 
     const finishAddingPlane = () => {
@@ -251,7 +443,6 @@ var createScene = function () {
             planeBeingAdded.freeze()
         }
         planeBeingAdded = null
-        camera.attachControl()
     }
 
     scene.onPointerObservable.add((pointerInfo) => {
@@ -262,12 +453,10 @@ var createScene = function () {
         switch (pointerInfo.type) {
             case BABYLON.PointerEventTypes.POINTERDOWN:
                 if (pointerInfo.pickInfo.hit) {
-                    console.debug(`shift key = ${pointerInfo.event.shiftKey}`)
-                    console.debug(`ctrl key = ${pointerInfo.event.ctrlKey}`)
-                    if (pointerInfo.event.shiftKey) {
+                    if (gui.mode === `DrawMode`) {
                         startAddingPlane(pointerInfo.pickInfo.pickedPoint)
                     }
-                    else if (pointerInfo.event.ctrlKey) {
+                    else if (gui.mode === `EraseMode`) {
                         const pickedMesh = pointerInfo.pickInfo.pickedMesh
                         if (Plane.PlaneMeshMap.has(pickedMesh)) {
                             Plane.PlaneMeshMap.get(pickedMesh).disable()
@@ -293,109 +482,6 @@ var createScene = function () {
                 break
         }
     })
-
-    //#endregion
-
-
-    //#region GUI
-
-    new class Gui {
-        constructor() {
-        }
-
-        _ = new class {
-            constructor() {
-                const manager = new BABYLON.GUI.GUI3DManager(scene)
-
-                const bpmDownButton = new BABYLON.GUI.Button3D(`gui.bpm.downButton`)
-                manager.addControl(bpmDownButton)
-                bpmDownButton.scaling.set(0.2, 0.2, 0.1)
-                bpmDownButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.downButton.text`, `-`)
-                bpmDownButton.content.fontSize = 24
-                bpmDownButton.content.color = `white`
-                bpmDownButton.content.scaleX = 1 / bpmDownButton.scaling.x
-                bpmDownButton.content.scaleY = 1 / bpmDownButton.scaling.y
-                bpmDownButton.onPointerClickObservable.add(() => {
-                    setBpm(bpm - 1)
-                    this.updateUiText()
-                })
-                global.bpmDownButton = bpmDownButton
-
-                const bpmUpButton = new BABYLON.GUI.Button3D(`gui.bpm.upButton`)
-                manager.addControl(bpmUpButton)
-                bpmUpButton.scaling.set(0.2, 0.2, 0.1)
-                bpmUpButton.content = new BABYLON.GUI.TextBlock(`gui.bpm.upButton.text`, `+`)
-                bpmUpButton.content.fontSize = 24
-                bpmUpButton.content.color = `white`
-                bpmUpButton.content.scaleX = 1 / bpmUpButton.scaling.x
-                bpmUpButton.content.scaleY = 1 / bpmUpButton.scaling.y
-                bpmUpButton.onPointerClickObservable.add(() => {
-                    setBpm(bpm + 1)
-                    this.updateUiText()
-                })
-
-                const bpmTextButton = new BABYLON.GUI.Button3D(`gui.bpm.text.button`)
-                manager.addControl(bpmTextButton)
-                bpmTextButton.scaling.set(0.5, 0.2, 0.1)
-                bpmTextButton.node.isPickable = false
-                bpmTextButton.mesh.material.diffuseColor.set(0.75, 0.75, 0.75)
-
-                const bpmText = new BABYLON.GUI.TextBlock(`gui.bpm.text`)
-                bpmTextButton.content = bpmText
-                bpmText.color = `white`
-                bpmText.fontSize = 24
-                bpmText.text = `${BpmDefault} bpm`
-                bpmText.scaleX = 1 / bpmTextButton.scaling.x
-                bpmText.scaleY = 1 / bpmTextButton.scaling.y
-                this.bpmText = bpmText
-
-                const bpmSlider = new BABYLON.GUI.Slider3D(`gui.bpm.slider`)
-                manager.addControl(bpmSlider)
-                bpmSlider.position.z = 0.065
-                bpmSlider.minimum = 40
-                bpmSlider.maximum = 240
-                bpmSlider.value = BpmDefault
-                bpmSlider.onValueChangedObservable.add((value) => {
-                    setBpm(Math.round(value))
-                    this.updateUiText()
-                })
-                this.bpmSlider = bpmSlider
-                global.bpmSlider = bpmSlider
-
-                this.addControl(bpmDownButton)
-                this.addControl(bpmUpButton)
-                this.addControl(bpmTextButton)
-                this.addControl(bpmSlider, 0.9)
-            }
-
-            bpmSlider = null
-            bpmText = null
-
-            get x() { return -BoundsWidth / 2 }
-            get y() { return BoundsHeight / 2 + 0.1 }
-
-            margin = 0.01
-            xForNextControl = this.x
-
-            addControl = (control, width) => {
-                if (width === undefined) {
-                    const mesh = control.mesh
-                    const bounds = mesh.getBoundingInfo()
-                    width = (bounds.maximum.x - bounds.minimum.x) * mesh.scaling.x
-                }
-
-                control.position.x = this.xForNextControl + width / 2
-                control.position.y = this.y
-
-                this.xForNextControl += width + this.margin
-            }
-
-            updateUiText = () => {
-                this.bpmSlider.value = bpm
-                this.bpmText.text = `${bpm} bpm`
-            }
-        }
-    }
 
     //#endregion
 
