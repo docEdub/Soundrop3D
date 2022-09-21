@@ -6,6 +6,8 @@ var createScene = function () {
     const BpmMin = 40
     const BpmMax = 240
 
+    const HalfBoundsWidth = BoundsWidth / 2
+    const HalfBoundsHeight = BoundsHeight / 2
     const BallHueIncrement = 360 / BallPoolCount
 
     const scene = new BABYLON.Scene(engine)
@@ -16,6 +18,29 @@ var createScene = function () {
 
     const light = new BABYLON.HemisphericLight(`light`, new BABYLON.Vector3(0, 1, 0), scene)
     light.intensity = 0.7
+
+    //#region class Border
+    const border = new class Border {
+        constructor() {
+        }
+
+        _ = new class {
+            constructor() {
+                const mesh = BABYLON.MeshBuilder.CreateLines(`border`, { points: [
+                    new BABYLON.Vector3(-HalfBoundsWidth,  HalfBoundsHeight, 0),
+                    new BABYLON.Vector3( HalfBoundsWidth,  HalfBoundsHeight, 0),
+                    new BABYLON.Vector3( HalfBoundsWidth, -HalfBoundsHeight, 0),
+                    new BABYLON.Vector3(-HalfBoundsWidth, -HalfBoundsHeight, 0),
+                    new BABYLON.Vector3(-HalfBoundsWidth,  HalfBoundsHeight, 0)
+                ]})
+                const material = new BABYLON.StandardMaterial(`border.material`)
+                mesh.material = material
+                mesh.isPickable = false
+            }
+        }
+    }
+
+    //#endregion
 
     //#region class Ball
 
@@ -430,10 +455,13 @@ var createScene = function () {
 
     //#region Pointer handling
 
-    const hitPointPlaneForDrawing = BABYLON.MeshBuilder.CreatePlane(`drawing plane`, { width: BoundsWidth, height: BoundsHeight })
+    const hitPointPlaneForDrawing = BABYLON.MeshBuilder.CreatePlane(`drawing plane`, { width: 2 * BoundsWidth, height: 2 * BoundsHeight })
+    hitPointPlaneForDrawing.visibility = 0
     let planeBeingAdded = null
 
     const startAddingPlane = (startPoint) => {
+        startPoint.x = Math.max(-HalfBoundsWidth, Math.min(startPoint.x, HalfBoundsWidth))
+        startPoint.y = Math.max(-HalfBoundsHeight, Math.min(startPoint.y, HalfBoundsHeight))
         startPoint.z = 0
         planeBeingAdded = new Plane(startPoint)
     }
@@ -470,8 +498,11 @@ var createScene = function () {
                 if (planeBeingAdded) {
                     const pickInfo = scene.pick(scene.pointerX, scene.pointerY)
                     if (pickInfo.hit) {
-                        pickInfo.pickedPoint.z = 0
-                        planeBeingAdded.endPoint = pickInfo.pickedPoint
+                        const pickedPoint = pickInfo.pickedPoint
+                        pickedPoint.x = Math.max(-HalfBoundsWidth, Math.min(pickedPoint.x, HalfBoundsWidth))
+                        pickedPoint.y = Math.max(-HalfBoundsHeight, Math.min(pickedPoint.y, HalfBoundsHeight))
+                        pickedPoint.z = 0
+                        planeBeingAdded.endPoint = pickedPoint
                     }
                 }
 
