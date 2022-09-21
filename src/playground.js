@@ -119,6 +119,11 @@ var createScene = function () {
                     return
                 }
 
+                const plane = Plane.PlaneMeshMap.get(planeMesh)
+                if (!plane) {
+                    return
+                }
+
                 const now = Date.now()
                 if (200 < now - this.lastCollisionTime) {
                     this.lastCollisionTime = now
@@ -127,6 +132,8 @@ var createScene = function () {
                     tone.setPlaybackRate(32 * (1 / planeMesh.scaling.x))
                     tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 25)
                     tone.play()
+
+                    plane.onCollide(this.mesh)
                 }
             }
         }
@@ -139,11 +146,16 @@ var createScene = function () {
     //#region class Plane
 
     const planeMeshPrototype = BABYLON.MeshBuilder.CreateBox(`plane mesh prototype`, { size: 1 })
-    planeMeshPrototype.scaling.z = 0.1
+    planeMeshPrototype.scaling.y = 0.25
+    planeMeshPrototype.scaling.z = 0.075
     planeMeshPrototype.isPickable = false
     planeMeshPrototype.isVisible = false
+    planeMeshPrototype.material = new BABYLON.StandardMaterial(`plane.material`)
+    planeMeshPrototype.material.diffuseColor.set(0.1, 0.1, 0.1)
+    planeMeshPrototype.material.emissiveColor.set(0.1, 0.1, 0.1)
 
     class Plane {
+        static Array = []
         static PlaneMeshMap = new WeakMap
 
         constructor(startPoint) {
@@ -153,6 +165,7 @@ var createScene = function () {
         set endPoint(value) {
             if (!this._.mesh) {
                 this._.initializeMesh()
+                Plane.Array.push(this)
                 Plane.PlaneMeshMap.set(this._.mesh, this)
             }
             this._.endPoint.copyFrom(value)
@@ -171,18 +184,34 @@ var createScene = function () {
         }
 
         disable = () => {
+            const index = Plane.Array.indexOf(this)
+            if (-1 < index) {
+              Plane.Array.splice(index, 1)
+            }
             Plane.PlaneMeshMap.delete(this._.mesh)
             this._.disable()
             this._ = null
+        }
+
+        onCollide = (mesh) => {
+            this._.onCollide(mesh.material.diffuseColor)
+        }
+
+        render = (deltaTime) => {
+            this._.render(deltaTime)
         }
 
         _ = new class {
             startPoint = new BABYLON.Vector3
             endPoint = new BABYLON.Vector3
             mesh = null
+            color = new BABYLON.Color3
 
             initializeMesh = () => {
                 const mesh = this.mesh = planeMeshPrototype.clone(`plane`)
+                mesh.material = mesh.material.clone(``)
+                this.color = mesh.material.diffuseColor
+
                 mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.PlaneImpostor, { mass: 0, friction: 0, restitution: 1 }, scene)
                 mesh.isVisible = true
                 for (let i = 0; i < ballPool.length; i++) {
@@ -212,6 +241,24 @@ var createScene = function () {
                 }
                 mesh.position.set(0, 0, -100000)
                 mesh.isVisible = false
+            }
+
+            onCollide = (color) => {
+                this.color.r = Math.max(this.color.r, color.r)
+                this.color.g = Math.max(this.color.g, color.g)
+                this.color.b = Math.max(this.color.b, color.b)
+            }
+
+            render = (deltaTime) => {
+                if (!this.mesh) {
+                    return
+                }
+                this.color.r -= deltaTime
+                this.color.g -= deltaTime
+                this.color.b -= deltaTime
+                this.color.r = Math.max(0.1, this.color.r)
+                this.color.g = Math.max(0.1, this.color.g)
+                this.color.b = Math.max(0.1, this.color.b)
             }
         }
     }
@@ -262,6 +309,17 @@ var createScene = function () {
         if (ballDropTimePeriodInMs < timeFromLastBallDropInMs) {
             timeFromLastBallDropInMs -= ballDropTimePeriodInMs
             dropBall()
+        }
+    })
+
+    //#endregion
+
+    //#region Plane handling
+
+    scene.registerBeforeRender(() => {
+        const deltaTime = engine.getDeltaTime() / 1000
+        for (let i = 0; i < Plane.Array.length; i++) {
+            Plane.Array[i].render(deltaTime)
         }
     })
 
