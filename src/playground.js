@@ -491,7 +491,7 @@ var createScene = function () {
         try {
             const xr = await scene.createDefaultXRExperienceAsync({})
             if (!!xr && !!xr.enterExitUI) {
-                xr.enterExitUI.activeButtonChangedObservable.add((eventData) => {
+                xr.enterExitUI.activeButtonChangedObservable.add(() => {
                     BABYLON.Engine.audioEngine.unlock()
                 })
             }
