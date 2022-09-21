@@ -151,8 +151,10 @@ var createScene = function () {
         }
 
         freeze = () => {
-            this._.mesh.isPickable = true
-            this._.mesh.freezeWorldMatrix()
+            if (!!this._.mesh) {
+                this._.mesh.isPickable = true
+                this._.mesh.freezeWorldMatrix()
+            }
         }
 
         resetPoints = () => {
