@@ -4,10 +4,12 @@ var createScene = function () {
     const BoundsWidth = 5
     const BoundsHeight = BoundsWidth
     const BallPoolCount = 200
-    const BpmDefault = 60
+    const BallRestitution = 0.9
+    const BpmDefault = 12
     const BpmMin = 12
     const BpmMax = 240
-    const CollisionRestitution = 0.95
+    const CollisionRestitution = 1
+    const Gravity = 1.5
     const ToneBaseNote = 33 // 55 hz
 
     const HalfBoundsWidth = BoundsWidth / 2
@@ -241,7 +243,7 @@ var createScene = function () {
                     this.currentPosition.y + this.velocity.y,
                     this.currentPosition.z + this.velocity.z
                 )
-                this.velocity.y -= 2 * deltaTime * deltaTime
+                this.velocity.y -= Gravity * deltaTime * deltaTime
 
                 this.mesh.position.copyFrom(this.currentPosition)
 
@@ -256,7 +258,18 @@ var createScene = function () {
                 for (let i = 0; i < Plane.Array.length; i++) {
                     const plane = Plane.Array[i]
                     if (intersection(this.previousPosition, this.currentPosition, plane.startPoint, plane.endPoint, Ball.tempVector)) {
-                        console.log(Ball.tempVector)
+                        this.velocity.set(
+                            this.velocity.x + this.velocity.y * plane.slope * BallRestitution,
+                            -this.velocity.y * plane.oneMinusAbsolutValueOfSlope * BallRestitution,
+                            0
+                        )
+                        this.currentPosition.set(
+                            Ball.tempVector.x + this.velocity.x,
+                            Ball.tempVector.y + this.velocity.y,
+                            0
+                        )
+                        this.mesh.position.copyFrom(this.currentPosition)
+                        break
                     }
                 }
             }
@@ -292,6 +305,14 @@ var createScene = function () {
 
         get endPoint() {
             return this._.endPoint
+        }
+
+        get slope() {
+            return this._.slope
+        }
+
+        get oneMinusAbsolutValueOfSlope() {
+            return this._.oneMinusAbsolutValueOfSlope
         }
 
         set endPoint(value) {
@@ -336,6 +357,8 @@ var createScene = function () {
         _ = new class {
             startPoint = new BABYLON.Vector3
             endPoint = new BABYLON.Vector3
+            slope = 0
+            oneMinusAbsolutValueOfSlope = 0
             mesh = null
             color = new BABYLON.Color3
 
@@ -363,7 +386,16 @@ var createScene = function () {
                 const angle = -Math.atan2(this.endPoint.y - this.startPoint.y, this.endPoint.x - this.startPoint.x)
                 mesh.rotateAround(mesh.position, BABYLON.Vector3.RightHandedForwardReadOnly, angle)
 
-                mesh.physicsImpostor.forceUpdate()
+                // mesh.physicsImpostor.forceUpdate()
+
+                if (this.endPoint.x < this.startPoint.x) {
+                    const tmp = this.endPoint
+                    this.endPoint = this.startPoint
+                    this.startPoint = tmp
+                }
+
+                this.slope = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x)
+                this.oneMinusAbsolutValueOfSlope = 1 - Math.abs(this.slope)
             }
 
             disable = () => {
