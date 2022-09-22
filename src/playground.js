@@ -3,15 +3,51 @@ var createScene = function () {
 
     const BoundsWidth = 5
     const BoundsHeight = BoundsWidth
-    const BallRadius = BoundsWidth / 40
     const BallPoolCount = 200
     const BpmDefault = 60
     const BpmMin = 40
     const BpmMax = 240
+    const ToneBaseNote = 33 // 55 hz
 
     const HalfBoundsWidth = BoundsWidth / 2
     const HalfBoundsHeight = BoundsHeight / 2
+    const BallRadius = BoundsWidth / 40
     const BallHueIncrement = 360 / BallPoolCount
+    const MaxPlaneWidth = Math.sqrt(BoundsWidth * BoundsWidth + BoundsHeight * BoundsHeight)
+
+    //#endregion
+
+    //#region Tuning
+
+    const tuning = new class Tuning {
+        constructor() {
+        }
+
+        frequencyFromPlaneScaleX = (planeScaleX) => {
+            let i = MaxPlaneWidth - planeScaleX
+            i /= MaxPlaneWidth
+            i *= this._.notes.length - 1
+            i = Math.round(i)
+            const note = this._.notes[i]
+            const hz = Math.pow(2, (note - ToneBaseNote) / 12)
+            return hz
+        }
+
+        _ = new class {
+            constructor() {
+                this.setToWholeToneScale(36, 84)
+            }
+
+            notes = []
+
+            setToWholeToneScale = (lowNote, highNote) => {
+                this.notes.length = 0
+                for (let i = lowNote; i <= highNote; i+=2) {
+                    this.notes.push(i)
+                }
+            }
+        }
+    }
 
     //#endregion
 
@@ -129,7 +165,8 @@ var createScene = function () {
                     this.lastCollisionTime = now
 
                     const tone = this.tone
-                    tone.setPlaybackRate(32 * (1 / planeMesh.scaling.x))
+                    const playbackRate = tuning.frequencyFromPlaneScaleX(planeMesh.scaling.x)
+                    tone.setPlaybackRate(playbackRate)
                     tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 25)
                     tone.play()
 
