@@ -172,7 +172,7 @@ var createScene = function () {
                     const tone = this.tone
                     const playbackRate = tuning.frequencyFromPlaneScaleX(planeMesh.scaling.x)
                     tone.setPlaybackRate(playbackRate)
-                    tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 25)
+                    tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 10)
                     tone.play()
 
                     plane.onCollide(this.mesh)
