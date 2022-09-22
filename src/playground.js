@@ -5,7 +5,7 @@ var createScene = function () {
     const BoundsHeight = BoundsWidth
     const BallPoolCount = 200
     const BpmDefault = 60
-    const BpmMin = 40
+    const BpmMin = 12
     const BpmMax = 240
     const ToneBaseNote = 33 // 55 hz
 
@@ -428,8 +428,8 @@ var createScene = function () {
                 const bpmSlider = new BABYLON.GUI.Slider3D(`gui.bpm.slider`)
                 manager.addControl(bpmSlider)
                 bpmSlider.position.z = 0.065
-                bpmSlider.minimum = 40
-                bpmSlider.maximum = 240
+                bpmSlider.minimum = BpmMin
+                bpmSlider.maximum = BpmMax
                 bpmSlider.value = BpmDefault
                 bpmSlider.onValueChangedObservable.add((value) => {
                     setBpm(Math.round(value))
