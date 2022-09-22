@@ -123,10 +123,15 @@ var createScene = function () {
             this._.drop()
         }
 
+        render = (deltaTime) => {
+            this._.render(deltaTime)
+        }
+
         _ = new class {
             lastPlaneCollisionTimeMap = new WeakMap
             mesh = null
             tone = null
+            linearVelocity = null
 
             get physicsImposter() {
                 return this.mesh.physicsImpostor
@@ -160,6 +165,11 @@ var createScene = function () {
                     return
                 }
 
+                const bounceAngle = Math.abs(BABYLON.Vector3.GetAngleBetweenVectors(this.linearVelocity, this.physicsImposter.getLinearVelocity(), BABYLON.Vector3.Forward))
+                if (bounceAngle < 0.1) {
+                    return
+                }
+
                 const now = Date.now()
                 let lastCollisionTime = this.lastPlaneCollisionTimeMap.get(plane)
                 if (lastCollisionTime === undefined) {
@@ -172,11 +182,19 @@ var createScene = function () {
                     const tone = this.tone
                     const playbackRate = tuning.frequencyFromPlaneScaleX(planeMesh.scaling.x)
                     tone.setPlaybackRate(playbackRate)
-                    tone.setVolume(this.physicsImposter.getLinearVelocity().lengthSquared() / 10)
+                    let volumeStrength = Math.min(bounceAngle, 1) * this.physicsImposter.getLinearVelocity().lengthSquared() / 10
+                    tone.setVolume(volumeStrength)
                     tone.play()
 
-                    plane.onCollide(this.mesh)
+                    let colorStrength = volumeStrength
+                    colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
+                    colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
+                    plane.onCollide(this.mesh, colorStrength)
                 }
+            }
+
+            render = (deltaTime) => {
+                this.linearVelocity = this.physicsImposter.getLinearVelocity()
             }
         }
     }
@@ -235,8 +253,8 @@ var createScene = function () {
             this._ = null
         }
 
-        onCollide = (mesh) => {
-            this._.onCollide(mesh.material.diffuseColor)
+        onCollide = (mesh, collisionStrength) => {
+            this._.onCollide(mesh.material.diffuseColor, collisionStrength)
         }
 
         render = (deltaTime) => {
@@ -285,10 +303,13 @@ var createScene = function () {
                 mesh.isVisible = false
             }
 
-            onCollide = (color) => {
-                this.color.r = Math.max(this.color.r, color.r)
-                this.color.g = Math.max(this.color.g, color.g)
-                this.color.b = Math.max(this.color.b, color.b)
+            onCollide = (color, colorStrength) => {
+                // let multiplier = (Math.log(collisionStrength + 0.01) / Math.log(100)) + 1
+                // multiplier = (Math.log(multiplier + 0.01) / Math.log(100)) + 1
+                // console.log(`collisionStrength = ${collisionStrength}, multiplier = ${multiplier}`)
+                this.color.r = Math.max(this.color.r, colorStrength * color.r)
+                this.color.g = Math.max(this.color.g, colorStrength * color.g)
+                this.color.b = Math.max(this.color.b, colorStrength * color.b)
             }
 
             render = (deltaTime) => {
@@ -347,10 +368,18 @@ var createScene = function () {
     let timeFromLastBallDropInMs = 0
 
     scene.registerBeforeRender(() => {
-        timeFromLastBallDropInMs += engine.getDeltaTime()
+        const deltaTimeInMs = engine.getDeltaTime()
+        timeFromLastBallDropInMs += deltaTimeInMs
         if (ballDropTimePeriodInMs < timeFromLastBallDropInMs) {
             timeFromLastBallDropInMs -= ballDropTimePeriodInMs
             dropBall()
+        }
+
+        if (ballsReady) {
+            const deltaTimeInSeconds = deltaTimeInMs / 1000
+            for (let i = 0; i < ballPool.length; i++) {
+                ballPool[i].render(deltaTimeInSeconds)
+            }
         }
     })
 
