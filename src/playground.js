@@ -124,7 +124,7 @@ var createScene = function () {
         }
 
         _ = new class {
-            lastCollisionTime = 0
+            lastPlaneCollisionTimeMap = new WeakMap
             mesh = null
             tone = null
 
@@ -161,8 +161,13 @@ var createScene = function () {
                 }
 
                 const now = Date.now()
-                if (200 < now - this.lastCollisionTime) {
-                    this.lastCollisionTime = now
+                let lastCollisionTime = this.lastPlaneCollisionTimeMap.get(plane)
+                if (lastCollisionTime === undefined) {
+                    lastCollisionTime = 0
+                }
+
+                if (200 < now - lastCollisionTime) {
+                    this.lastPlaneCollisionTimeMap.set(plane, now)
 
                     const tone = this.tone
                     const playbackRate = tuning.frequencyFromPlaneScaleX(planeMesh.scaling.x)
