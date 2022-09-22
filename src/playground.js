@@ -5,11 +5,12 @@ var createScene = function () {
     const BoundsHeight = BoundsWidth
     const BallPoolCount = 200
     const BallRestitution = 0.9
-    const BpmDefault = 12
+    const BpmDefault = 60
     const BpmMin = 12
     const BpmMax = 240
     const CollisionRestitution = 1
     const Gravity = 1.5
+    const PhysicsTickInMs = 1000 / 120
     const ToneBaseNote = 33 // 55 hz
 
     const HalfBoundsWidth = BoundsWidth / 2
@@ -17,6 +18,9 @@ var createScene = function () {
     const BallRadius = BoundsWidth / 40
     const BallHueIncrement = 360 / BallPoolCount
     const MaxPlaneWidth = Math.sqrt(BoundsWidth * BoundsWidth + BoundsHeight * BoundsHeight)
+    const PhysicsTickInSeconds = PhysicsTickInMs / 1000
+    const PhysicsTickInSecondsSquared = PhysicsTickInSeconds * PhysicsTickInSeconds
+    const PhysicsTickInSecondsSquaredTimesGravity = PhysicsTickInSecondsSquared * Gravity
 
     //#endregion
 
@@ -139,11 +143,6 @@ var createScene = function () {
 
             const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
-            // mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: CollisionRestitution }, scene)
-            // mesh.physicsImpostor.executeNativeFunction((world, body) => {
-            //     world.removeCollisionObject(body)
-            //     world.addRigidBody(body, 1, 2)
-            // })
             this._.mesh = mesh
 
             const material = new BABYLON.StandardMaterial(``)
@@ -175,17 +174,16 @@ var createScene = function () {
             velocity = new BABYLON.Vector3
             previousPosition = new BABYLON.Vector3
             currentPosition = new BABYLON.Vector3
+            lastPhysicsTickInMs = 0
 
             get physicsImposter() {
                 return this.mesh.physicsImpostor
             }
 
             drop = () => {
-                // const physicsImposter = this.physicsImposter
-                // physicsImposter.setAngularVelocity(BABYLON.Vector3.ZeroReadOnly)
-                // physicsImposter.setLinearVelocity(BABYLON.Vector3.ZeroReadOnly)
-
                 this.currentPosition.copyFrom(Ball.StartPosition)
+                this.previousPosition.copyFrom(Ball.StartPosition)
+                this.mesh.position.copyFrom(Ball.StartPosition)
                 this.velocity.set(0, 0, 0)
             }
 
@@ -236,22 +234,21 @@ var createScene = function () {
                 }
             }
 
-            render = (deltaTime) => {
+            onPhysicsTick = () => {
                 this.previousPosition.copyFrom(this.currentPosition)
                 this.currentPosition.set(
                     this.currentPosition.x + this.velocity.x,
                     this.currentPosition.y + this.velocity.y,
                     this.currentPosition.z + this.velocity.z
                 )
-                this.velocity.y -= Gravity * deltaTime * deltaTime
-
-                this.mesh.position.copyFrom(this.currentPosition)
+                this.velocity.y -= PhysicsTickInSecondsSquaredTimesGravity
 
                 // Skip plane intersection calculations when ball is out of bounds.
                 if (this.currentPosition.x < -HalfBoundsWidth
                         || HalfBoundsWidth < this.currentPosition.x
                         || this.currentPosition.y < -HalfBoundsHeight
                         || HalfBoundsHeight < this.currentPosition.y) {
+                    this.mesh.position.copyFrom(this.currentPosition)
                     return
                 }
 
@@ -268,9 +265,19 @@ var createScene = function () {
                             Ball.tempVector.y + this.velocity.y,
                             0
                         )
-                        this.mesh.position.copyFrom(this.currentPosition)
                         break
                     }
+                }
+
+                this.mesh.position.copyFrom(this.currentPosition)
+                // console.log(this.currentPosition)
+            }
+
+            render = (deltaTimeInMs) => {
+                this.lastPhysicsTickInMs += deltaTimeInMs
+                while (PhysicsTickInMs < this.lastPhysicsTickInMs) {
+                    this.onPhysicsTick()
+                    this.lastPhysicsTickInMs -= PhysicsTickInMs
                 }
             }
         }
@@ -480,9 +487,8 @@ var createScene = function () {
         }
 
         if (ballsReady) {
-            const deltaTimeInSeconds = deltaTimeInMs / 1000
             for (let i = 0; i < ballPool.length; i++) {
-                ballPool[i].render(deltaTimeInSeconds)
+                ballPool[i].render(deltaTimeInMs)
             }
         }
     })
