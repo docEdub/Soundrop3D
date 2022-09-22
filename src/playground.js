@@ -65,6 +65,43 @@ var createScene = function () {
 
     //#endregion
 
+    const intersection = (a1, a2, b1, b2, out) => {
+        const x1 = a1.x
+        const y1 = a1.y
+        const x2 = a2.x
+        const y2 = a2.y
+        const x3 = b1.x
+        const y3 = b1.y
+        const x4 = b2.x
+        const y4 = b2.y
+
+        // Return `false` if one of the line lengths is zero.
+        if ((x1 === x2 && y1 === y2) || (x3 === x4 && y3 === y4)) {
+            return false
+        }
+
+        denominator = ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1))
+
+        // Return `false` if lines are parallel.
+        if (denominator === 0) {
+            return false
+        }
+
+        let ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator
+        let ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator
+
+        // Return `false` if the intersection is not on the segments.
+        if (ua < 0 || 1 < ua || ub < 0 || 1 < ub) {
+            return false
+        }
+
+        // Set out vector's x and y coordinates.
+        out.x = x1 + ua * (x2 - x1)
+        out.y = y1 + ua * (y2 - y1)
+
+        return true
+    }
+
     //#region class Border
     const border = new class Border {
         constructor() {
@@ -93,6 +130,7 @@ var createScene = function () {
     class Ball {
         static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
         static Hue = 0
+        static tempVector = new BABYLON.Vector3
 
         constructor(tone) {
             this._.tone = tone
@@ -133,6 +171,8 @@ var createScene = function () {
             mesh = null
             tone = null
             velocity = new BABYLON.Vector3
+            previousPosition = new BABYLON.Vector3
+            currentPosition = new BABYLON.Vector3
 
             get physicsImposter() {
                 return this.mesh.physicsImpostor
@@ -143,10 +183,8 @@ var createScene = function () {
                 // physicsImposter.setAngularVelocity(BABYLON.Vector3.ZeroReadOnly)
                 // physicsImposter.setLinearVelocity(BABYLON.Vector3.ZeroReadOnly)
 
+                this.currentPosition.copyFrom(Ball.StartPosition)
                 this.velocity.set(0, 0, 0)
-
-                const mesh = this.mesh
-                mesh.position.copyFrom(Ball.StartPosition)
             }
 
             addCollider = (physicsImposter) => {
@@ -197,13 +235,30 @@ var createScene = function () {
             }
 
             render = (deltaTime) => {
-                // this.linearVelocity = this.physicsImposter.getLinearVelocity()
-                this.mesh.position.set(
-                    this.mesh.position.x + this.velocity.x,
-                    this.mesh.position.y + this.velocity.y,
-                    this.mesh.position.z + this.velocity.z
+                this.previousPosition.copyFrom(this.currentPosition)
+                this.currentPosition.set(
+                    this.currentPosition.x + this.velocity.x,
+                    this.currentPosition.y + this.velocity.y,
+                    this.currentPosition.z + this.velocity.z
                 )
                 this.velocity.y -= 2 * deltaTime * deltaTime
+
+                this.mesh.position.copyFrom(this.currentPosition)
+
+                // Skip plane intersection calculations when ball is out of bounds.
+                if (this.currentPosition.x < -HalfBoundsWidth
+                        || HalfBoundsWidth < this.currentPosition.x
+                        || this.currentPosition.y < -HalfBoundsHeight
+                        || HalfBoundsHeight < this.currentPosition.y) {
+                    return
+                }
+
+                for (let i = 0; i < Plane.Array.length; i++) {
+                    const plane = Plane.Array[i]
+                    if (intersection(this.previousPosition, this.currentPosition, plane.startPoint, plane.endPoint, Ball.tempVector)) {
+                        console.log(Ball.tempVector)
+                    }
+                }
             }
         }
     }
@@ -229,6 +284,14 @@ var createScene = function () {
 
         constructor(startPoint) {
             this._.startPoint.copyFrom(startPoint)
+        }
+
+        get startPoint() {
+            return this._.startPoint
+        }
+
+        get endPoint() {
+            return this._.endPoint
         }
 
         set endPoint(value) {
