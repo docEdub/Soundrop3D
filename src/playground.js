@@ -7,6 +7,7 @@ var createScene = function () {
     const BpmDefault = 60
     const BpmMin = 12
     const BpmMax = 240
+    const CollisionRestitution = 0.95
     const ToneBaseNote = 33 // 55 hz
 
     const HalfBoundsWidth = BoundsWidth / 2
@@ -98,7 +99,7 @@ var createScene = function () {
 
             const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
-            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: 0.9 }, scene)
+            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: CollisionRestitution }, scene)
             mesh.physicsImpostor.executeNativeFunction((world, body) => {
                 world.removeCollisionObject(body)
                 world.addRigidBody(body, 1, 2)
@@ -272,7 +273,7 @@ var createScene = function () {
                 mesh.material = mesh.material.clone(``)
                 this.color = mesh.material.diffuseColor
 
-                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.PlaneImpostor, { mass: 0, friction: 0, restitution: 1 }, scene)
+                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.PlaneImpostor, { mass: 0, friction: 0, restitution: CollisionRestitution }, scene)
                 mesh.isVisible = true
                 for (let i = 0; i < ballPool.length; i++) {
                     ballPool[i].addCollider(mesh.physicsImpostor)
