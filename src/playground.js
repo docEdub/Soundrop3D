@@ -99,11 +99,11 @@ var createScene = function () {
 
             const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
-            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: CollisionRestitution }, scene)
-            mesh.physicsImpostor.executeNativeFunction((world, body) => {
-                world.removeCollisionObject(body)
-                world.addRigidBody(body, 1, 2)
-            })
+            // mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: CollisionRestitution }, scene)
+            // mesh.physicsImpostor.executeNativeFunction((world, body) => {
+            //     world.removeCollisionObject(body)
+            //     world.addRigidBody(body, 1, 2)
+            // })
             this._.mesh = mesh
 
             const material = new BABYLON.StandardMaterial(``)
@@ -113,11 +113,11 @@ var createScene = function () {
         }
 
         addCollider = (physicsImposter) => {
-            this._.addCollider(physicsImposter)
+            // this._.addCollider(physicsImposter)
         }
 
         removeCollider = (physicsImposter) => {
-            this._.removeCollider(physicsImposter)
+            // this._.removeCollider(physicsImposter)
         }
 
         drop = () => {
@@ -132,16 +132,18 @@ var createScene = function () {
             lastPlaneCollisionTimeMap = new WeakMap
             mesh = null
             tone = null
-            linearVelocity = null
+            velocity = new BABYLON.Vector3
 
             get physicsImposter() {
                 return this.mesh.physicsImpostor
             }
 
             drop = () => {
-                const physicsImposter = this.physicsImposter
-                physicsImposter.setAngularVelocity(BABYLON.Vector3.ZeroReadOnly)
-                physicsImposter.setLinearVelocity(BABYLON.Vector3.ZeroReadOnly)
+                // const physicsImposter = this.physicsImposter
+                // physicsImposter.setAngularVelocity(BABYLON.Vector3.ZeroReadOnly)
+                // physicsImposter.setLinearVelocity(BABYLON.Vector3.ZeroReadOnly)
+
+                this.velocity.set(0, 0, 0)
 
                 const mesh = this.mesh
                 mesh.position.copyFrom(Ball.StartPosition)
@@ -195,7 +197,13 @@ var createScene = function () {
             }
 
             render = (deltaTime) => {
-                this.linearVelocity = this.physicsImposter.getLinearVelocity()
+                // this.linearVelocity = this.physicsImposter.getLinearVelocity()
+                this.mesh.position.set(
+                    this.mesh.position.x + this.velocity.x,
+                    this.mesh.position.y + this.velocity.y,
+                    this.mesh.position.z + this.velocity.z
+                )
+                this.velocity.y -= 2 * deltaTime * deltaTime
             }
         }
     }
