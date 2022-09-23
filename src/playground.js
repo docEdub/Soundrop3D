@@ -4,17 +4,33 @@ var createScene = function () {
     const BoundsWidth = 5
     const BoundsHeight = BoundsWidth
     const BallPoolCount = 200
+    const BallRestitution = 0.98
     const BpmDefault = 60
     const BpmMin = 12
     const BpmMax = 240
-    const CollisionRestitution = 0.95
+    const Gravity = 1.5
+    const PhysicsBoundsWidth = 1.25 * BoundsWidth
+    const PhysicsBoundsHeight = 1.25 * BoundsHeight
+    const PhysicsTickInMs = 1000 / 120
     const ToneBaseNote = 33 // 55 hz
+
+    const HalfPI = Math.PI / 2
+    const TwoPI = 2 * Math.PI
 
     const HalfBoundsWidth = BoundsWidth / 2
     const HalfBoundsHeight = BoundsHeight / 2
+    const HalfPhysicsBoundsWidth = PhysicsBoundsWidth / 2
+    const HalfPhysicsBoundsHeight = PhysicsBoundsHeight / 2
     const BallRadius = BoundsWidth / 40
     const BallHueIncrement = 360 / BallPoolCount
     const MaxPlaneWidth = Math.sqrt(BoundsWidth * BoundsWidth + BoundsHeight * BoundsHeight)
+    const PhysicsTickInSeconds = PhysicsTickInMs / 1000
+    const PhysicsTickInSecondsSquared = PhysicsTickInSeconds * PhysicsTickInSeconds
+    const PhysicsTickInSecondsSquaredTimesGravity = PhysicsTickInSecondsSquared * Gravity
+
+    const toDegrees = (value) => {
+        return (value / TwoPI) * 360
+    }
 
     //#endregion
 
@@ -55,15 +71,42 @@ var createScene = function () {
     //#region Scene setup
 
     const scene = new BABYLON.Scene(engine)
-    scene.enablePhysics(new BABYLON.Vector3(0, -1, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
-    const camera = new BABYLON.ArcRotateCamera(`camera`, -Math.PI / 2, Math.PI / 2, BoundsWidth * 1.5, BABYLON.Vector3.ZeroReadOnly)
+    const camera = new BABYLON.ArcRotateCamera(`camera`, -HalfPI, HalfPI, BoundsWidth * 1.5, BABYLON.Vector3.ZeroReadOnly)
     camera.attachControl()
 
     const light = new BABYLON.HemisphericLight(`light`, new BABYLON.Vector3(0, 1, 0), scene)
     light.intensity = 0.7
 
     //#endregion
+
+    const intersection = (a1, a2, b1, b2, out) => {
+        // Return `false` if one of the line lengths is zero.
+        if ((a1.x === a2.x && a1.y === a2.y) || (b1.x === b2.x && b1.y === b2.y)) {
+            return false
+        }
+
+        denominator = ((b2.y - b1.y) * (a2.x - a1.x) - (b2.x - b1.x) * (a2.y - a1.y))
+
+        // Return `false` if lines are parallel.
+        if (denominator === 0) {
+            return false
+        }
+
+        let ua = ((b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x)) / denominator
+        let ub = ((a2.x - a1.x) * (a1.y - b1.y) - (a2.y - a1.y) * (a1.x - b1.x)) / denominator
+
+        // Return `false` if the intersection is not on the segments.
+        if (ua < 0 || 1 < ua || ub < 0 || 1 < ub) {
+            return false
+        }
+
+        // Set out vector's x and y coordinates.
+        out.x = a1.x + ua * (a2.x - a1.x)
+        out.y = a1.y + ua * (a2.y - a1.y)
+
+        return true
+    }
 
     //#region class Border
     const border = new class Border {
@@ -93,31 +136,19 @@ var createScene = function () {
     class Ball {
         static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
         static Hue = 0
+        static intersectionPoint = new BABYLON.Vector3
 
         constructor(tone) {
             this._.tone = tone
 
             const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 32 }, scene)
             mesh.position.set(0, -1000, 0)
-            mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0, restitution: CollisionRestitution }, scene)
-            mesh.physicsImpostor.executeNativeFunction((world, body) => {
-                world.removeCollisionObject(body)
-                world.addRigidBody(body, 1, 2)
-            })
             this._.mesh = mesh
 
             const material = new BABYLON.StandardMaterial(``)
             BABYLON.Color3.HSVtoRGBToRef(Ball.Hue, 0.75, 1, material.diffuseColor)
             Ball.Hue += BallHueIncrement
             mesh.material = material
-        }
-
-        addCollider = (physicsImposter) => {
-            this._.addCollider(physicsImposter)
-        }
-
-        removeCollider = (physicsImposter) => {
-            this._.removeCollider(physicsImposter)
         }
 
         drop = () => {
@@ -132,70 +163,123 @@ var createScene = function () {
             lastPlaneCollisionTimeMap = new WeakMap
             mesh = null
             tone = null
-            linearVelocity = null
+            velocity = new BABYLON.Vector3
+            previousPosition = new BABYLON.Vector3
+            currentPosition = new BABYLON.Vector3
+            lastPhysicsTickInMs = 0
 
             get physicsImposter() {
                 return this.mesh.physicsImpostor
             }
 
             drop = () => {
-                const physicsImposter = this.physicsImposter
-                physicsImposter.setAngularVelocity(BABYLON.Vector3.ZeroReadOnly)
-                physicsImposter.setLinearVelocity(BABYLON.Vector3.ZeroReadOnly)
-
-                const mesh = this.mesh
-                mesh.position.copyFrom(Ball.StartPosition)
+                this.currentPosition.copyFrom(Ball.StartPosition)
+                this.previousPosition.copyFrom(Ball.StartPosition)
+                this.mesh.position.copyFrom(Ball.StartPosition)
+                this.velocity.set(0, 0, 0)
             }
 
-            addCollider = (physicsImposter) => {
-                this.physicsImposter.registerOnPhysicsCollide(physicsImposter, this.onCollide)
-            }
-
-            removeCollider = (physicsImposter) => {
-                this.physicsImposter.unregisterOnPhysicsCollide(physicsImposter, this.onCollide)
-            }
-
-            onCollide = (ballCollider, planeCollider) => {
-                const planeMesh = planeCollider.object
-                if (!planeMesh) {
-                    return
-                }
-
-                const plane = Plane.PlaneMeshMap.get(planeMesh)
-                if (!plane) {
-                    return
-                }
-
-                const bounceAngle = Math.abs(BABYLON.Vector3.GetAngleBetweenVectors(this.linearVelocity, this.physicsImposter.getLinearVelocity(), BABYLON.Vector3.Forward))
+            onCollide = (plane, bounceAngle, speed) => {
+                bounceAngle = Math.abs(bounceAngle)
                 if (bounceAngle < 0.1) {
                     return
                 }
 
-                const now = Date.now()
-                let lastCollisionTime = this.lastPlaneCollisionTimeMap.get(plane)
-                if (lastCollisionTime === undefined) {
-                    lastCollisionTime = 0
-                }
+                const tone = this.tone
+                tone.setPlaybackRate(plane.playbackRate)
+                let volume = Math.min(bounceAngle * speed * 10, 1)
+                const amplitude = Math.pow(2, volume) - 1
+                tone.setVolume(amplitude)
+                tone.play()
 
-                if (200 < now - lastCollisionTime) {
-                    this.lastPlaneCollisionTimeMap.set(plane, now)
-
-                    const tone = this.tone
-                    const playbackRate = tuning.frequencyFromPlaneScaleX(planeMesh.scaling.x)
-                    tone.setPlaybackRate(playbackRate)
-                    let volumeStrength = Math.min(bounceAngle, 1) * this.physicsImposter.getLinearVelocity().lengthSquared() / 10
-                    tone.setVolume(volumeStrength)
-                    tone.play()
-
-                    let colorStrength = volumeStrength
-                    colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
-                    colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
-                    plane.onCollide(this.mesh, colorStrength)
-                }
+                let colorStrength = volume
+                colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
+                colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
+                plane.onCollide(this.mesh, colorStrength)
             }
 
-            render = (deltaTime) => {
-                this.linearVelocity = this.physicsImposter.getLinearVelocity()
+            onPhysicsTick = () => {
+                this.previousPosition.copyFrom(this.currentPosition)
+                this.currentPosition.set(
+                    this.currentPosition.x + this.velocity.x,
+                    this.currentPosition.y + this.velocity.y,
+                    this.currentPosition.z + this.velocity.z
+                )
+                this.velocity.y -= PhysicsTickInSecondsSquaredTimesGravity
+
+                // Skip plane intersection calculations when ball is out of bounds.
+                if (this.currentPosition.x < -HalfPhysicsBoundsWidth
+                        || HalfPhysicsBoundsWidth < this.currentPosition.x
+                        || this.currentPosition.y < -HalfPhysicsBoundsHeight
+                        || HalfPhysicsBoundsHeight < this.currentPosition.y) {
+                    this.mesh.position.copyFrom(this.currentPosition)
+                    return
+                }
+
+                let ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
+                if (ballAngle < 0) {
+                    ballAngle += TwoPI
+                }
+
+                let lastPlaneHit = null
+
+                let loopResetCount = 0
+                for (let i = 0; i < Plane.Array.length; i++) {
+                    const plane = Plane.Array[i]
+
+                    if (intersection(this.previousPosition, this.currentPosition, plane.startPoint, plane.endPoint, Ball.intersectionPoint)) {
+                        if (lastPlaneHit === plane) {
+                            continue
+                        }
+                        lastPlaneHit = plane
+
+                        let differenceAngle = plane.angle - ballAngle
+                        if (differenceAngle < 0) {
+                            differenceAngle += TwoPI
+                        }
+
+                        const previousBallAngle = ballAngle
+                        ballAngle = plane.angle + differenceAngle
+                        if (ballAngle < 0) {
+                            ballAngle += TwoPI
+                        }
+
+                        const speedSquared = this.velocity.lengthSquared() * BallRestitution
+                        const speed = Math.sqrt(speedSquared)
+
+                        this.onCollide(plane, previousBallAngle - ballAngle, speed)
+
+                        this.velocity.set(
+                            speed * Math.cos(ballAngle),
+                            speed * Math.sin(ballAngle),
+                            0
+                        )
+
+                        this.previousPosition.copyFrom(Ball.intersectionPoint)
+                        this.currentPosition.set(
+                            Ball.intersectionPoint.x + this.velocity.x,
+                            Ball.intersectionPoint.y + this.velocity.y,
+                            0
+                        )
+
+                        // Test each plane for intersections again with the updated positions.
+                        i = 0
+                        loopResetCount += 1
+                        if (10 < loopResetCount) {
+                            break
+                        }
+                    }
+                }
+
+                this.mesh.position.copyFrom(this.currentPosition)
+            }
+
+            render = (deltaTimeInMs) => {
+                this.lastPhysicsTickInMs += deltaTimeInMs
+                while (PhysicsTickInMs < this.lastPhysicsTickInMs) {
+                    this.onPhysicsTick()
+                    this.lastPhysicsTickInMs -= PhysicsTickInMs
+                }
             }
         }
     }
@@ -223,6 +307,14 @@ var createScene = function () {
             this._.startPoint.copyFrom(startPoint)
         }
 
+        get startPoint() {
+            return this._.startPoint
+        }
+
+        get endPoint() {
+            return this._.endPoint
+        }
+
         set endPoint(value) {
             if (!this._.mesh) {
                 this._.initializeMesh()
@@ -231,6 +323,14 @@ var createScene = function () {
             }
             this._.endPoint.copyFrom(value)
             this._.resetPoints()
+        }
+
+        get angle() {
+            return this._.angle
+        }
+
+        get playbackRate() {
+            return this._.playbackRate
         }
 
         freeze = () => {
@@ -265,6 +365,8 @@ var createScene = function () {
         _ = new class {
             startPoint = new BABYLON.Vector3
             endPoint = new BABYLON.Vector3
+            angle = 0
+            playbackRate = 1
             mesh = null
             color = new BABYLON.Color3
 
@@ -273,41 +375,33 @@ var createScene = function () {
                 mesh.material = mesh.material.clone(``)
                 this.color = mesh.material.diffuseColor
 
-                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.PlaneImpostor, { mass: 0, friction: 0, restitution: CollisionRestitution }, scene)
                 mesh.isVisible = true
-                for (let i = 0; i < ballPool.length; i++) {
-                    ballPool[i].addCollider(mesh.physicsImpostor)
-                }
             }
 
             resetPoints = () => {
                 const mesh = this.mesh
                 mesh.scaling.x = BABYLON.Vector3.Distance(this.startPoint, this.endPoint)
+                this.playbackRate = tuning.frequencyFromPlaneScaleX(mesh.scaling.x)
 
                 BABYLON.Vector3.CenterToRef(this.startPoint, this.endPoint, mesh.position)
 
                 mesh.rotationQuaternion = null
-                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightReadOnly, Math.PI / 2)
+                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightReadOnly, HalfPI)
 
-                const angle = -Math.atan2(this.endPoint.y - this.startPoint.y, this.endPoint.x - this.startPoint.x)
-                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightHandedForwardReadOnly, angle)
+                let angle = Math.atan2(this.endPoint.y - this.startPoint.y, this.endPoint.x - this.startPoint.x)
+                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightHandedForwardReadOnly, -angle)
 
-                mesh.physicsImpostor.forceUpdate()
+                if (angle < 0) {
+                    angle += TwoPI
+                }
+                this.angle = angle
             }
 
             disable = () => {
-                const mesh = this.mesh
-                for (let i = 0; i < ballPool.length; i++) {
-                    ballPool[i].removeCollider(mesh.physicsImpostor)
-                }
-                mesh.position.set(0, 0, -100000)
-                mesh.isVisible = false
+                this.mesh.isVisible = false
             }
 
             onCollide = (color, colorStrength) => {
-                // let multiplier = (Math.log(collisionStrength + 0.01) / Math.log(100)) + 1
-                // multiplier = (Math.log(multiplier + 0.01) / Math.log(100)) + 1
-                // console.log(`collisionStrength = ${collisionStrength}, multiplier = ${multiplier}`)
                 this.color.r = Math.max(this.color.r, colorStrength * color.r)
                 this.color.g = Math.max(this.color.g, colorStrength * color.g)
                 this.color.b = Math.max(this.color.b, colorStrength * color.b)
@@ -317,6 +411,7 @@ var createScene = function () {
                 if (!this.mesh) {
                     return
                 }
+                deltaTime *= 3
                 this.color.r -= deltaTime
                 this.color.g -= deltaTime
                 this.color.b -= deltaTime
@@ -377,9 +472,8 @@ var createScene = function () {
         }
 
         if (ballsReady) {
-            const deltaTimeInSeconds = deltaTimeInMs / 1000
             for (let i = 0; i < ballPool.length; i++) {
-                ballPool[i].render(deltaTimeInSeconds)
+                ballPool[i].render(deltaTimeInMs)
             }
         }
     })
