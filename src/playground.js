@@ -10,17 +10,26 @@ var createScene = function () {
     const BpmMax = 240
     const CollisionRestitution = 1
     const Gravity = 1.5
+    const PhysicsBoundsWidth = 1.25 * BoundsWidth
+    const PhysicsBoundsHeight = 1.25 * BoundsHeight
     const PhysicsTickInMs = 1000 / 120
+    const PlaneCount = 100
     const ToneBaseNote = 33 // 55 hz
 
     const HalfBoundsWidth = BoundsWidth / 2
     const HalfBoundsHeight = BoundsHeight / 2
+    const HalfPhysicsBoundsWidth = PhysicsBoundsWidth / 2
+    const HalfPhysicsBoundsHeight = PhysicsBoundsHeight / 2
     const BallRadius = BoundsWidth / 40
     const BallHueIncrement = 360 / BallPoolCount
     const MaxPlaneWidth = Math.sqrt(BoundsWidth * BoundsWidth + BoundsHeight * BoundsHeight)
     const PhysicsTickInSeconds = PhysicsTickInMs / 1000
     const PhysicsTickInSecondsSquared = PhysicsTickInSeconds * PhysicsTickInSeconds
     const PhysicsTickInSecondsSquaredTimesGravity = PhysicsTickInSecondsSquared * Gravity
+
+    const toDegrees = (value) => {
+        return (value / (2 * Math.PI)) * 360
+    }
 
     //#endregion
 
@@ -136,7 +145,8 @@ var createScene = function () {
     class Ball {
         static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
         static Hue = 0
-        static tempVector = new BABYLON.Vector3
+        static intersectionPoint = new BABYLON.Vector3
+        static planesHit = new Array(PlaneCount)
 
         constructor(tone) {
             this._.tone = tone
@@ -242,30 +252,71 @@ var createScene = function () {
                     this.currentPosition.z + this.velocity.z
                 )
                 this.velocity.y -= PhysicsTickInSecondsSquaredTimesGravity
+                const speed = Math.sqrt(this.velocity.y * this.velocity.y + this.velocity.x * this.velocity.x)
 
                 // Skip plane intersection calculations when ball is out of bounds.
-                if (this.currentPosition.x < -HalfBoundsWidth
-                        || HalfBoundsWidth < this.currentPosition.x
-                        || this.currentPosition.y < -HalfBoundsHeight
-                        || HalfBoundsHeight < this.currentPosition.y) {
+                if (this.currentPosition.x < -HalfPhysicsBoundsWidth
+                        || HalfPhysicsBoundsWidth < this.currentPosition.x
+                        || this.currentPosition.y < -HalfPhysicsBoundsHeight
+                        || HalfPhysicsBoundsHeight < this.currentPosition.y) {
                     this.mesh.position.copyFrom(this.currentPosition)
                     return
                 }
 
+                let planesHitIndex = 0
+                for (let i = 0; i < Ball.planesHit.length; i++) {
+                    Ball.planesHit[i] = null
+                }
+
+                let ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
+
                 for (let i = 0; i < Plane.Array.length; i++) {
                     const plane = Plane.Array[i]
-                    if (intersection(this.previousPosition, this.currentPosition, plane.startPoint, plane.endPoint, Ball.tempVector)) {
-                        this.velocity.set(
-                            this.velocity.x + this.velocity.y * plane.slope * BallRestitution,
-                            -this.velocity.y * plane.oneMinusAbsolutValueOfSlope * BallRestitution,
-                            0
-                        )
+                    if (intersection(this.previousPosition, this.currentPosition, plane.startPoint, plane.endPoint, Ball.intersectionPoint)) {
+                        if (-1 < Ball.planesHit.indexOf(plane)) {
+                            continue
+                        }
+                        Ball.planesHit[planesHitIndex] = plane
+                        planesHitIndex++
+
+                        if (plane.slope === -Infinity) { // perpendicular
+                            this.velocity.set(-this.velocity.x, this.velocity.y, 0)
+                            ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
+                        }
+                        else {
+                            const planeAngle = Math.atan2(plane.slope, 1)
+                            const planeNormalAngle = planeAngle + Math.PI / 2
+                            const halfBounceAngle = (Math.PI - Math.abs(planeNormalAngle)) - Math.abs(ballAngle)
+                            console.log(`ballAngle: ${toDegrees(ballAngle).toFixed(3)}, planeAngle: ${toDegrees(planeAngle).toFixed(3)}, planeNormalAngle: ${toDegrees(planeNormalAngle).toFixed(3)}, halfBounceAngle: ${toDegrees(halfBounceAngle).toFixed(3)}`)
+
+                            ballAngle -= halfBounceAngle + halfBounceAngle
+
+                            // Flip velocity.x, maybe?
+                            // if ((planeAngle < 0 && 0 < this.velocity.x) || (0 < planeAngle && this.velocity.x < 0)) {
+                            //     console.log(`flipped: true`)
+                            //     this.velocity.x = -this.velocity.x
+                            // }
+                            // else {
+                            //     console.log(`flipped: false`)
+                            // }
+
+                            this.velocity.set(
+                                -speed * Math.cos(ballAngle),
+                                -speed * Math.sin(ballAngle),
+                                0
+                            )
+
+                            // ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
+                        }
+                        this.previousPosition.copyFrom(Ball.intersectionPoint)
                         this.currentPosition.set(
-                            Ball.tempVector.x + this.velocity.x,
-                            Ball.tempVector.y + this.velocity.y,
+                            Ball.intersectionPoint.x + this.velocity.x,
+                            Ball.intersectionPoint.y + this.velocity.y,
                             0
                         )
-                        break
+
+                        // Test each plane for intersections again with the updated positions.
+                        i = 0
                     }
                 }
 
@@ -394,12 +445,6 @@ var createScene = function () {
                 mesh.rotateAround(mesh.position, BABYLON.Vector3.RightHandedForwardReadOnly, angle)
 
                 // mesh.physicsImpostor.forceUpdate()
-
-                if (this.endPoint.x < this.startPoint.x) {
-                    const tmp = this.endPoint
-                    this.endPoint = this.startPoint
-                    this.startPoint = tmp
-                }
 
                 this.slope = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x)
                 this.oneMinusAbsolutValueOfSlope = 1 - Math.abs(this.slope)
