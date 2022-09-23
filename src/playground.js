@@ -1,3 +1,5 @@
+const { Color3 } = require("babylonjs")
+
 var createScene = function () {
     //#region Constants
 
@@ -133,22 +135,68 @@ var createScene = function () {
 
     //#region class Ball
 
+    const BallMesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 16 }, scene)
+
     class Ball {
         static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
         static Hue = 0
         static intersectionPoint = new BABYLON.Vector3
 
-        constructor(tone) {
+        static InstanceColors = new Array(4 * BallPoolCount)
+        static InstanceMatrices = new Array(16 * BallPoolCount)
+        static InstanceMatricesDirty = true
+        static InstanceColorsDirty = true
+
+        static CreateInstances = () => {
+            // Set matrices to identity.
+            for (let i = 0; i < BallPoolCount; i++) {
+                const matrixIndex = 16 * i
+                Ball.InstanceMatrices[matrixIndex] = 1
+                Ball.InstanceMatrices[matrixIndex + 5] = 1
+                Ball.InstanceMatrices[matrixIndex + 10] = 1
+                Ball.InstanceMatrices[matrixIndex + 15] = 1
+
+                const ball = ballPool[i]
+                const color = ball.color
+                const colorIndex = 4 * i
+                Ball.InstanceColors[colorIndex] = color.r
+                Ball.InstanceColors[colorIndex + 1] = color.g
+                Ball.InstanceColors[colorIndex + 2] = color.b
+                Ball.InstanceColors[colorIndex + 3] = 0
+            }
+
+            BallMesh.thinInstanceSetBuffer(`matrix`, Ball.InstanceMatrices, 16, false)
+            BallMesh.thinInstanceSetBuffer(`color`, Ball.InstanceColors, 16, false)
+            Ball.UpdateInstances()
+        }
+
+        static UpdateInstances = () => {
+            if (Ball.InstanceMatricesDirty) {
+                Ball.InstanceMatricesDirty = false
+                BallMesh.thinInstanceBufferUpdated(`matrix`)
+            }
+            if (Ball.InstanceColorsDirty) {
+                Ball.InstanceColorsDirty = false
+                BallMesh.thinInstanceBufferUpdated(`color`)
+            }
+        }
+
+        constructor(index, tone) {
+            this._.index = index
+            this._.colorIndex = 4 * index
+            this._.matrixIndex = 16 * index
             this._.tone = tone
 
-            const mesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 32 }, scene)
-            mesh.position.set(0, -1000, 0)
-            this._.mesh = mesh
-
-            const material = new BABYLON.StandardMaterial(``)
-            BABYLON.Color3.HSVtoRGBToRef(Ball.Hue, 0.75, 1, material.diffuseColor)
+            BABYLON.Color3.HSVtoRGBToRef(Ball.Hue, 0.75, 1, this._.color)
             Ball.Hue += BallHueIncrement
-            mesh.material = material
+        }
+
+        get color() {
+            return this._.color
+        }
+
+        get position() {
+            return this._.currentPosition
         }
 
         drop = () => {
@@ -160,23 +208,42 @@ var createScene = function () {
         }
 
         _ = new class {
-            lastPlaneCollisionTimeMap = new WeakMap
-            mesh = null
+            index = 0
+            colorIndex = 0
+            matrixIndex = 0
+            isVisible = false
             tone = null
+            color = new Color3
             velocity = new BABYLON.Vector3
             previousPosition = new BABYLON.Vector3
-            currentPosition = new BABYLON.Vector3
+            currentPosition = new BABYLON.Vector3(0, -1000, 0)
             lastPhysicsTickInMs = 0
 
-            get physicsImposter() {
-                return this.mesh.physicsImpostor
+            updateInstanceColor = () => {
+                const colorIndex = this.colorIndex
+                const color = this.color
+                Ball.InstanceColors[colorIndex] = color.r
+                Ball.InstanceColors[colorIndex + 1] = color.g
+                Ball.InstanceColors[colorIndex + 2] = color.b
+                Ball.InstanceColors[colorIndex + 3] = this.isVisible ? 1 : 0
+                Ball.InstanceColorsDirty = true
+            }
+
+            updateInstancePosition = () => {
+                const matrixIndex = this.matrixIndex
+                const position = this.currentPosition
+                Ball.InstanceMatrices[matrixIndex + 12] = position.x
+                Ball.InstanceMatrices[matrixIndex + 13] = position.y
+                Ball.InstanceMatricesDirty = true
             }
 
             drop = () => {
                 this.currentPosition.copyFrom(Ball.StartPosition)
                 this.previousPosition.copyFrom(Ball.StartPosition)
-                this.mesh.position.copyFrom(Ball.StartPosition)
                 this.velocity.set(0, 0, 0)
+                this.isVisible = true
+                this.updateInstanceColor()
+                this.updateInstancePosition()
             }
 
             onCollide = (plane, bounceAngle, speed) => {
@@ -195,7 +262,7 @@ var createScene = function () {
                 let colorStrength = volume
                 colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
                 colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
-                plane.onCollide(this.mesh, colorStrength)
+                plane.onCollide(this.color, colorStrength)
             }
 
             onPhysicsTick = () => {
@@ -212,7 +279,7 @@ var createScene = function () {
                         || HalfPhysicsBoundsWidth < this.currentPosition.x
                         || this.currentPosition.y < -HalfPhysicsBoundsHeight
                         || HalfPhysicsBoundsHeight < this.currentPosition.y) {
-                    this.mesh.position.copyFrom(this.currentPosition)
+                    this.updateInstancePosition()
                     return
                 }
 
@@ -271,7 +338,7 @@ var createScene = function () {
                     }
                 }
 
-                this.mesh.position.copyFrom(this.currentPosition)
+                this.updateInstancePosition()
             }
 
             render = (deltaTimeInMs) => {
@@ -354,8 +421,8 @@ var createScene = function () {
             this._ = null
         }
 
-        onCollide = (mesh, collisionStrength) => {
-            this._.onCollide(mesh.material.diffuseColor, collisionStrength)
+        onCollide = (color, collisionStrength) => {
+            this._.onCollide(color, collisionStrength)
         }
 
         render = (deltaTime) => {
@@ -432,11 +499,12 @@ var createScene = function () {
     BABYLON.Engine.audioEngine.onAudioUnlockedObservable.addOnce(() => {
         const tone = new BABYLON.Sound(`tone`, `tone.wav`, scene, () => {
             for (let i = 0; i < BallPoolCount; i++) {
-                const ball = new Ball(tone.clone(``))
+                const ball = new Ball(i, tone.clone(``))
                 ballPool[i] = ball
             }
 
             ballsReady = true
+            Ball.CreateInstances()
         })
     })
 
@@ -475,6 +543,7 @@ var createScene = function () {
             for (let i = 0; i < ballPool.length; i++) {
                 ballPool[i].render(deltaTimeInMs)
             }
+            Ball.UpdateInstances()
         }
     })
 
