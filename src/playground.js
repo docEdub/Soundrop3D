@@ -137,6 +137,99 @@ var createScene = function () {
 
     //#endregion
 
+    //#region class BallPhysics
+
+    class BallPhysics {
+        static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
+        static IntersectionPoint = new BABYLON.Vector3
+
+        onCollideObservable = new BABYLON.Observable
+        position = new BABYLON.Vector3(0, -1000, 0)
+
+        previousPosition = new BABYLON.Vector3
+        velocity = new BABYLON.Vector3
+
+        drop = () => {
+            this.position.copyFrom(Ball.StartPosition)
+            this.previousPosition.copyFrom(Ball.StartPosition)
+            this.velocity.set(0, 0, 0)
+        }
+
+        tick = () => {
+            this.previousPosition.copyFrom(this.position)
+            this.position.set(
+                this.position.x + this.velocity.x,
+                this.position.y + this.velocity.y,
+                this.position.z + this.velocity.z
+            )
+            this.velocity.y -= PhysicsTickInSecondsSquaredTimesGravity
+
+            // Skip plane intersection calculations when ball is out of bounds.
+            if (this.position.x < -HalfPhysicsBoundsWidth
+                    || HalfPhysicsBoundsWidth < this.position.x
+                    || this.position.y < -HalfPhysicsBoundsHeight
+                    || HalfPhysicsBoundsHeight < this.position.y) {
+                return
+            }
+            let ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
+            if (ballAngle < 0) {
+                ballAngle += TwoPI
+            }
+
+            let lastPlaneHit = null
+
+            let loopResetCount = 0
+            for (let i = 0; i < Plane.Array.length; i++) {
+                const plane = Plane.Array[i]
+
+                if (intersection(this.previousPosition, this.position, plane.startPoint, plane.endPoint, Ball.intersectionPoint)) {
+                    if (lastPlaneHit === plane) {
+                        continue
+                    }
+                    lastPlaneHit = plane
+
+                    let differenceAngle = plane.angle - ballAngle
+                    if (differenceAngle < 0) {
+                        differenceAngle += TwoPI
+                    }
+
+                    const previousBallAngle = ballAngle
+                    ballAngle = plane.angle + differenceAngle
+                    if (ballAngle < 0) {
+                        ballAngle += TwoPI
+                    }
+
+                    const speedSquared = this.velocity.lengthSquared() * BallRestitution
+                    const speed = Math.sqrt(speedSquared)
+
+                    this.onCollideObservable.notifyObservers({ plane: plane, bounceAngle: previousBallAngle - ballAngle, speed: speed })
+
+                    this.velocity.set(
+                        speed * Math.cos(ballAngle),
+                        speed * Math.sin(ballAngle),
+                        0
+                    )
+
+                    this.previousPosition.copyFrom(Ball.intersectionPoint)
+                    this.position.set(
+                        Ball.intersectionPoint.x + this.velocity.x,
+                        Ball.intersectionPoint.y + this.velocity.y,
+                        0
+                    )
+
+                    // Test each plane for intersections again with the updated positions.
+                    i = 0
+                    loopResetCount += 1
+                    if (10 < loopResetCount) {
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    //#endregion
+
     //#region class Ball
 
     const BallMesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 16 }, scene)
@@ -227,10 +320,12 @@ var createScene = function () {
             isVisible = false
             tone = null
             color = new Color3
-            velocity = new BABYLON.Vector3
-            previousPosition = new BABYLON.Vector3
-            currentPosition = new BABYLON.Vector3(0, -1000, 0)
+            ballPhysics = new BallPhysics
             lastPhysicsTickInMs = 0
+
+            constructor() {
+                this.ballPhysics.onCollideObservable.add(this.onCollide)
+            }
 
             updateInstanceColor = () => {
                 const colorIndex = this.colorIndex
@@ -244,34 +339,31 @@ var createScene = function () {
 
             updateInstancePosition = () => {
                 const matrixIndex = this.matrixIndex
-                const position = this.currentPosition
+                const position = this.ballPhysics.position
                 Ball.InstanceMatrices[matrixIndex + 12] = position.x
                 Ball.InstanceMatrices[matrixIndex + 13] = position.y
                 Ball.InstanceMatricesDirty = true
             }
 
             drop = () => {
-                this.currentPosition.copyFrom(Ball.StartPosition)
-                this.previousPosition.copyFrom(Ball.StartPosition)
+                this.ballPhysics.drop()
                 this.updateInstancePosition()
 
                 if (!this.isVisible) {
                     this.isVisible = true
                     this.updateInstanceColor()
                 }
-
-                this.velocity.set(0, 0, 0)
             }
 
-            onCollide = (plane, bounceAngle, speed) => {
-                bounceAngle = Math.abs(bounceAngle)
+            onCollide = (eventData) => { // plane, bounceAngle, speed) => {
+                let bounceAngle = Math.abs(eventData.bounceAngle)
                 if (bounceAngle < 0.1) {
                     return
                 }
 
                 const tone = this.tone
-                tone.setPlaybackRate(plane.playbackRate)
-                let volume = Math.min(bounceAngle * speed * 10, 1)
+                tone.setPlaybackRate(eventData.plane.playbackRate)
+                let volume = Math.min(bounceAngle * eventData.speed * 10, 1)
                 const amplitude = Math.pow(2, volume) - 1
                 tone.setVolume(amplitude)
                 tone.play()
@@ -279,82 +371,11 @@ var createScene = function () {
                 let colorStrength = volume
                 colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
                 colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
-                plane.onCollide(this.color, colorStrength)
+                eventData.plane.onCollide(this.color, colorStrength)
             }
 
             onPhysicsTick = () => {
-                this.previousPosition.copyFrom(this.currentPosition)
-                this.currentPosition.set(
-                    this.currentPosition.x + this.velocity.x,
-                    this.currentPosition.y + this.velocity.y,
-                    this.currentPosition.z + this.velocity.z
-                )
-                this.velocity.y -= PhysicsTickInSecondsSquaredTimesGravity
-
-                // Skip plane intersection calculations when ball is out of bounds.
-                if (this.currentPosition.x < -HalfPhysicsBoundsWidth
-                        || HalfPhysicsBoundsWidth < this.currentPosition.x
-                        || this.currentPosition.y < -HalfPhysicsBoundsHeight
-                        || HalfPhysicsBoundsHeight < this.currentPosition.y) {
-                    this.updateInstancePosition()
-                    return
-                }
-
-                let ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
-                if (ballAngle < 0) {
-                    ballAngle += TwoPI
-                }
-
-                let lastPlaneHit = null
-
-                let loopResetCount = 0
-                for (let i = 0; i < Plane.Array.length; i++) {
-                    const plane = Plane.Array[i]
-
-                    if (intersection(this.previousPosition, this.currentPosition, plane.startPoint, plane.endPoint, Ball.intersectionPoint)) {
-                        if (lastPlaneHit === plane) {
-                            continue
-                        }
-                        lastPlaneHit = plane
-
-                        let differenceAngle = plane.angle - ballAngle
-                        if (differenceAngle < 0) {
-                            differenceAngle += TwoPI
-                        }
-
-                        const previousBallAngle = ballAngle
-                        ballAngle = plane.angle + differenceAngle
-                        if (ballAngle < 0) {
-                            ballAngle += TwoPI
-                        }
-
-                        const speedSquared = this.velocity.lengthSquared() * BallRestitution
-                        const speed = Math.sqrt(speedSquared)
-
-                        this.onCollide(plane, previousBallAngle - ballAngle, speed)
-
-                        this.velocity.set(
-                            speed * Math.cos(ballAngle),
-                            speed * Math.sin(ballAngle),
-                            0
-                        )
-
-                        this.previousPosition.copyFrom(Ball.intersectionPoint)
-                        this.currentPosition.set(
-                            Ball.intersectionPoint.x + this.velocity.x,
-                            Ball.intersectionPoint.y + this.velocity.y,
-                            0
-                        )
-
-                        // Test each plane for intersections again with the updated positions.
-                        i = 0
-                        loopResetCount += 1
-                        if (10 < loopResetCount) {
-                            break
-                        }
-                    }
-                }
-
+                this.ballPhysics.tick()
                 this.updateInstancePosition()
             }
 
