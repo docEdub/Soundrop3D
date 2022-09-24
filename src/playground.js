@@ -618,7 +618,7 @@ var createScene = function () {
                 this.pointCloud.updateParticle = this.updatePointCloudParticle
                 this.pointCloud.addPoints(GuideLine.PointCount)
                 this.pointCloud.buildMeshAsync().then(() => {
-                    this.pointCloud.mesh.visibility = 0.1
+                    this.pointCloud.mesh.visibility = 0.033
                     this.update()
                 })
             }
