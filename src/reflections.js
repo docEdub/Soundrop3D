@@ -40,7 +40,6 @@ var createScene = function () {
     //#region Scene setup
 
     const scene = new BABYLON.Scene(engine)
-    scene.enablePhysics(new BABYLON.Vector3(0, -1, 0), new BABYLON.AmmoJSPlugin(false, ammo))
 
     const camera = new BABYLON.ArcRotateCamera(`camera`, -Math.PI / 2, Math.PI / 2, BoundsWidth * 1.5, BABYLON.Vector3.ZeroReadOnly)
     camera.attachControl()
