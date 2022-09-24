@@ -1,14 +1,13 @@
-const { Color3 } = require("babylonjs")
 
 var createScene = function () {
     //#region Constants
 
     const BoundsWidth = 5
     const BoundsHeight = BoundsWidth
-    const BallPoolCount = 200
+    const BallPoolCount = 1000
     const BallRestitution = 0.98
     const BpmDefault = 60
-    const BpmMin = 12
+    const BpmMin = 1
     const BpmMax = 240
     const Gravity = 1.5
     const PhysicsBoundsWidth = 1.25 * BoundsWidth
@@ -134,241 +133,6 @@ var createScene = function () {
             }
         }
     }
-
-    //#endregion
-
-    //#region class Ball
-
-    const BallMesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 16 }, scene)
-    BallMesh.isVisible = false
-
-    class Ball {
-        static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
-        static Hue = 0
-        static intersectionPoint = new BABYLON.Vector3
-
-        static InstanceColors = new Float32Array(4 * BallPoolCount)
-        static InstanceMatrices = new Float32Array(16 * BallPoolCount)
-        static InstanceMatricesDirty = true
-        static InstanceColorsDirty = true
-
-        static CreateInstances = () => {
-            Ball.InstanceColors.fill(0)
-            Ball.InstanceMatrices.fill(0)
-
-            // Set matrices to identity.
-            for (let i = 0; i < BallPoolCount; i++) {
-                const matrixIndex = 16 * i
-                Ball.InstanceMatrices[matrixIndex] = 1
-                Ball.InstanceMatrices[matrixIndex + 5] = 1
-                Ball.InstanceMatrices[matrixIndex + 10] = 1
-                Ball.InstanceMatrices[matrixIndex + 15] = 1
-
-                const ball = ballPool[i]
-                const color = ball.color
-                const colorIndex = 4 * i
-                Ball.InstanceColors[colorIndex] = color.r
-                Ball.InstanceColors[colorIndex + 1] = color.g
-                Ball.InstanceColors[colorIndex + 2] = color.b
-                Ball.InstanceColors[colorIndex + 3] = 0
-            }
-
-            BallMesh.thinInstanceSetBuffer(`matrix`, Ball.InstanceMatrices, 16, false)
-            BallMesh.thinInstanceSetBuffer(`color`, Ball.InstanceColors, 4, false)
-            Ball.UpdateInstances()
-
-            BallMesh.isVisible = true
-        }
-
-        static UpdateInstances = () => {
-            if (Ball.InstanceMatricesDirty) {
-                Ball.InstanceMatricesDirty = false
-                BallMesh.thinInstanceBufferUpdated(`matrix`)
-            }
-            if (Ball.InstanceColorsDirty) {
-                Ball.InstanceColorsDirty = false
-                BallMesh.thinInstanceBufferUpdated(`color`)
-            }
-        }
-
-        constructor(index, tone) {
-            this._.index = index
-            this._.colorIndex = 4 * index
-            this._.matrixIndex = 16 * index
-            this._.tone = tone
-
-            BABYLON.Color3.HSVtoRGBToRef(Ball.Hue, 0.75, 1, this._.color)
-            Ball.Hue += BallHueIncrement
-
-            this._.updateInstanceColor()
-            this._.updateInstancePosition()
-        }
-
-        get color() {
-            return this._.color
-        }
-
-        get position() {
-            return this._.currentPosition
-        }
-
-        drop = () => {
-            this._.drop()
-        }
-
-        render = (deltaTime) => {
-            this._.render(deltaTime)
-        }
-
-        _ = new class {
-            index = 0
-            colorIndex = 0
-            matrixIndex = 0
-            isVisible = false
-            tone = null
-            color = new Color3
-            velocity = new BABYLON.Vector3
-            previousPosition = new BABYLON.Vector3
-            currentPosition = new BABYLON.Vector3(0, -1000, 0)
-            lastPhysicsTickInMs = 0
-
-            updateInstanceColor = () => {
-                const colorIndex = this.colorIndex
-                const color = this.color
-                Ball.InstanceColors[colorIndex] = color.r
-                Ball.InstanceColors[colorIndex + 1] = color.g
-                Ball.InstanceColors[colorIndex + 2] = color.b
-                Ball.InstanceColors[colorIndex + 3] = this.isVisible ? 1 : 0
-                Ball.InstanceColorsDirty = true
-            }
-
-            updateInstancePosition = () => {
-                const matrixIndex = this.matrixIndex
-                const position = this.currentPosition
-                Ball.InstanceMatrices[matrixIndex + 12] = position.x
-                Ball.InstanceMatrices[matrixIndex + 13] = position.y
-                Ball.InstanceMatricesDirty = true
-            }
-
-            drop = () => {
-                this.currentPosition.copyFrom(Ball.StartPosition)
-                this.previousPosition.copyFrom(Ball.StartPosition)
-                this.updateInstancePosition()
-
-                if (!this.isVisible) {
-                    this.isVisible = true
-                    this.updateInstanceColor()
-                }
-
-                this.velocity.set(0, 0, 0)
-            }
-
-            onCollide = (plane, bounceAngle, speed) => {
-                bounceAngle = Math.abs(bounceAngle)
-                if (bounceAngle < 0.1) {
-                    return
-                }
-
-                const tone = this.tone
-                tone.setPlaybackRate(plane.playbackRate)
-                let volume = Math.min(bounceAngle * speed * 10, 1)
-                const amplitude = Math.pow(2, volume) - 1
-                tone.setVolume(amplitude)
-                tone.play()
-
-                let colorStrength = volume
-                colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
-                colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
-                plane.onCollide(this.color, colorStrength)
-            }
-
-            onPhysicsTick = () => {
-                this.previousPosition.copyFrom(this.currentPosition)
-                this.currentPosition.set(
-                    this.currentPosition.x + this.velocity.x,
-                    this.currentPosition.y + this.velocity.y,
-                    this.currentPosition.z + this.velocity.z
-                )
-                this.velocity.y -= PhysicsTickInSecondsSquaredTimesGravity
-
-                // Skip plane intersection calculations when ball is out of bounds.
-                if (this.currentPosition.x < -HalfPhysicsBoundsWidth
-                        || HalfPhysicsBoundsWidth < this.currentPosition.x
-                        || this.currentPosition.y < -HalfPhysicsBoundsHeight
-                        || HalfPhysicsBoundsHeight < this.currentPosition.y) {
-                    this.updateInstancePosition()
-                    return
-                }
-
-                let ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
-                if (ballAngle < 0) {
-                    ballAngle += TwoPI
-                }
-
-                let lastPlaneHit = null
-
-                let loopResetCount = 0
-                for (let i = 0; i < Plane.Array.length; i++) {
-                    const plane = Plane.Array[i]
-
-                    if (intersection(this.previousPosition, this.currentPosition, plane.startPoint, plane.endPoint, Ball.intersectionPoint)) {
-                        if (lastPlaneHit === plane) {
-                            continue
-                        }
-                        lastPlaneHit = plane
-
-                        let differenceAngle = plane.angle - ballAngle
-                        if (differenceAngle < 0) {
-                            differenceAngle += TwoPI
-                        }
-
-                        const previousBallAngle = ballAngle
-                        ballAngle = plane.angle + differenceAngle
-                        if (ballAngle < 0) {
-                            ballAngle += TwoPI
-                        }
-
-                        const speedSquared = this.velocity.lengthSquared() * BallRestitution
-                        const speed = Math.sqrt(speedSquared)
-
-                        this.onCollide(plane, previousBallAngle - ballAngle, speed)
-
-                        this.velocity.set(
-                            speed * Math.cos(ballAngle),
-                            speed * Math.sin(ballAngle),
-                            0
-                        )
-
-                        this.previousPosition.copyFrom(Ball.intersectionPoint)
-                        this.currentPosition.set(
-                            Ball.intersectionPoint.x + this.velocity.x,
-                            Ball.intersectionPoint.y + this.velocity.y,
-                            0
-                        )
-
-                        // Test each plane for intersections again with the updated positions.
-                        i = 0
-                        loopResetCount += 1
-                        if (10 < loopResetCount) {
-                            break
-                        }
-                    }
-                }
-
-                this.updateInstancePosition()
-            }
-
-            render = (deltaTimeInMs) => {
-                this.lastPhysicsTickInMs += deltaTimeInMs
-                while (PhysicsTickInMs < this.lastPhysicsTickInMs) {
-                    this.onPhysicsTick()
-                    this.lastPhysicsTickInMs -= PhysicsTickInMs
-                }
-            }
-        }
-    }
-
-    const ballPool = new Array(BallPoolCount)
 
     //#endregion
 
@@ -508,6 +272,261 @@ var createScene = function () {
 
     //#endregion
 
+    //#region class BallPhysics
+
+    class BallPhysics {
+        static StartPosition = new BABYLON.Vector3(-HalfBoundsWidth * 0.75, HalfBoundsHeight * 0.95, 0)
+        static IntersectionPoint = new BABYLON.Vector3
+
+        onCollideObservable = new BABYLON.Observable
+        position = new BABYLON.Vector3(0, -1000, 0)
+
+        previousPosition = new BABYLON.Vector3
+        velocity = new BABYLON.Vector3
+
+        drop = () => {
+            this.position.copyFrom(BallPhysics.StartPosition)
+            this.previousPosition.copyFrom(BallPhysics.StartPosition)
+            this.velocity.set(0, 0, 0)
+        }
+
+        tick = () => {
+            this.previousPosition.copyFrom(this.position)
+            this.position.set(
+                this.position.x + this.velocity.x,
+                this.position.y + this.velocity.y,
+                this.position.z + this.velocity.z
+            )
+            this.velocity.y -= PhysicsTickInSecondsSquaredTimesGravity
+
+            // Skip plane intersection calculations when ball is out of bounds.
+            if (this.position.x < -HalfPhysicsBoundsWidth
+                    || HalfPhysicsBoundsWidth < this.position.x
+                    || this.position.y < -HalfPhysicsBoundsHeight
+                    || HalfPhysicsBoundsHeight < this.position.y) {
+                return
+            }
+            let ballAngle = Math.atan2(this.velocity.y, this.velocity.x)
+            if (ballAngle < 0) {
+                ballAngle += TwoPI
+            }
+
+            let lastPlaneHit = null
+
+            let loopResetCount = 0
+            for (let i = 0; i < Plane.Array.length; i++) {
+                const plane = Plane.Array[i]
+
+                if (intersection(this.previousPosition, this.position, plane.startPoint, plane.endPoint, Ball.intersectionPoint)) {
+                    if (lastPlaneHit === plane) {
+                        continue
+                    }
+                    lastPlaneHit = plane
+
+                    const speed = this.velocity.length() * BallRestitution
+
+                    let differenceAngle = plane.angle - ballAngle
+                    if (differenceAngle < 0) {
+                        differenceAngle += TwoPI
+                    }
+
+                    const previousBallAngle = ballAngle
+                    ballAngle = plane.angle + differenceAngle
+                    if (ballAngle < 0) {
+                        ballAngle += TwoPI
+                    }
+
+                    this.onCollideObservable.notifyObservers({ plane: plane, bounceAngle: previousBallAngle - ballAngle, speed: speed })
+
+                    this.velocity.set(
+                        speed * Math.cos(ballAngle),
+                        speed * Math.sin(ballAngle),
+                        0
+                    )
+
+                    this.previousPosition.copyFrom(Ball.intersectionPoint)
+                    this.position.set(
+                        Ball.intersectionPoint.x + this.velocity.x,
+                        Ball.intersectionPoint.y + this.velocity.y,
+                        0
+                    )
+
+                    // Test each plane for intersections again with the updated positions.
+                    i = 0
+                    loopResetCount += 1
+                    if (10 < loopResetCount) {
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    //#endregion
+
+    //#region class Ball
+
+    const BallMesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 16 }, scene)
+    BallMesh.isVisible = false
+
+    class Ball {
+        static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
+        static Hue = 0
+        static intersectionPoint = new BABYLON.Vector3
+
+        static InstanceColors = new Float32Array(4 * BallPoolCount)
+        static InstanceMatrices = new Float32Array(16 * BallPoolCount)
+        static InstanceMatricesDirty = true
+        static InstanceColorsDirty = true
+
+        static CreateInstances = () => {
+            Ball.InstanceColors.fill(0)
+            Ball.InstanceMatrices.fill(0)
+
+            // Set matrices to identity.
+            for (let i = 0; i < BallPoolCount; i++) {
+                const matrixIndex = 16 * i
+                Ball.InstanceMatrices[matrixIndex] = 1
+                Ball.InstanceMatrices[matrixIndex + 5] = 1
+                Ball.InstanceMatrices[matrixIndex + 10] = 1
+                Ball.InstanceMatrices[matrixIndex + 15] = 1
+
+                const ball = ballPool[i]
+                const color = ball.color
+                const colorIndex = 4 * i
+                Ball.InstanceColors[colorIndex] = color.r
+                Ball.InstanceColors[colorIndex + 1] = color.g
+                Ball.InstanceColors[colorIndex + 2] = color.b
+                Ball.InstanceColors[colorIndex + 3] = 0
+            }
+
+            BallMesh.thinInstanceSetBuffer(`matrix`, Ball.InstanceMatrices, 16, false)
+            BallMesh.thinInstanceSetBuffer(`color`, Ball.InstanceColors, 4, false)
+            Ball.UpdateInstances()
+
+            BallMesh.isVisible = true
+        }
+
+        static UpdateInstances = () => {
+            if (Ball.InstanceMatricesDirty) {
+                Ball.InstanceMatricesDirty = false
+                BallMesh.thinInstanceBufferUpdated(`matrix`)
+            }
+            if (Ball.InstanceColorsDirty) {
+                Ball.InstanceColorsDirty = false
+                BallMesh.thinInstanceBufferUpdated(`color`)
+            }
+        }
+
+        constructor(index, tone) {
+            this._.index = index
+            this._.colorIndex = 4 * index
+            this._.matrixIndex = 16 * index
+            this._.tone = tone
+
+            BABYLON.Color3.HSVtoRGBToRef(Ball.Hue, 0.75, 1, this._.color)
+            Ball.Hue += BallHueIncrement
+
+            this._.updateInstanceColor()
+            this._.updateInstancePosition()
+        }
+
+        get color() {
+            return this._.color
+        }
+
+        get position() {
+            return this._.currentPosition
+        }
+
+        drop = () => {
+            this._.drop()
+        }
+
+        render = (deltaTime) => {
+            this._.render(deltaTime)
+        }
+
+        _ = new class {
+            index = 0
+            colorIndex = 0
+            matrixIndex = 0
+            isVisible = false
+            tone = null
+            color = new Color3
+            ballPhysics = new BallPhysics
+            lastPhysicsTickInMs = 0
+
+            constructor() {
+                this.ballPhysics.onCollideObservable.add(this.onCollide)
+            }
+
+            updateInstanceColor = () => {
+                const colorIndex = this.colorIndex
+                const color = this.color
+                Ball.InstanceColors[colorIndex] = color.r
+                Ball.InstanceColors[colorIndex + 1] = color.g
+                Ball.InstanceColors[colorIndex + 2] = color.b
+                Ball.InstanceColors[colorIndex + 3] = this.isVisible ? 1 : 0
+                Ball.InstanceColorsDirty = true
+            }
+
+            updateInstancePosition = () => {
+                const matrixIndex = this.matrixIndex
+                const position = this.ballPhysics.position
+                Ball.InstanceMatrices[matrixIndex + 12] = position.x
+                Ball.InstanceMatrices[matrixIndex + 13] = position.y
+                Ball.InstanceMatricesDirty = true
+            }
+
+            drop = () => {
+                this.ballPhysics.drop()
+                this.updateInstancePosition()
+
+                if (!this.isVisible) {
+                    this.isVisible = true
+                    this.updateInstanceColor()
+                }
+            }
+
+            onCollide = (eventData) => { // plane, bounceAngle, speed) => {
+                let bounceAngle = Math.abs(eventData.bounceAngle)
+                if (bounceAngle < 0.1) {
+                    return
+                }
+
+                const tone = this.tone
+                tone.setPlaybackRate(eventData.plane.playbackRate)
+                let volume = Math.min(bounceAngle * eventData.speed * 10, 1)
+                const amplitude = Math.pow(2, volume) - 1
+                tone.setVolume(amplitude)
+                tone.play()
+
+                let colorStrength = volume
+                colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
+                colorStrength = (Math.log(colorStrength + 0.01) / Math.log(100)) + 1
+                eventData.plane.onCollide(this.color, colorStrength)
+            }
+
+            onPhysicsTick = () => {
+                this.ballPhysics.tick()
+                this.updateInstancePosition()
+            }
+
+            render = (deltaTimeInMs) => {
+                this.lastPhysicsTickInMs += deltaTimeInMs
+                while (PhysicsTickInMs < this.lastPhysicsTickInMs) {
+                    this.onPhysicsTick()
+                    this.lastPhysicsTickInMs -= PhysicsTickInMs
+                }
+            }
+        }
+    }
+
+    const ballPool = new Array(BallPoolCount)
+
+    //#endregion
+
     //#region Ball handling
 
     let ballsReady = false
@@ -574,6 +593,66 @@ var createScene = function () {
             Plane.Array[i].render(deltaTime)
         }
     })
+
+    //#endregion
+
+    //#region class GuideLine
+
+    const guideline = new class GuideLine {
+        static PointCount = 100000
+
+        update = () => {
+            this._.update()
+        }
+
+        _ = new class {
+            ballPhysics = new BallPhysics
+            points = new Array(GuideLine.PointCount)
+            pointCloud = new BABYLON.PointsCloudSystem(`guideline`, 2, scene, { updatable: true })
+
+            constructor() {
+                for (let i = 0; i < GuideLine.PointCount; i++) {
+                    this.points[i] = new BABYLON.Vector3
+                }
+
+                this.pointCloud.updateParticle = this.updatePointCloudParticle
+                this.pointCloud.addPoints(GuideLine.PointCount)
+                this.pointCloud.buildMeshAsync().then(() => {
+                    this.pointCloud.mesh.visibility = 0.1
+                    this.update()
+                })
+            }
+
+            updatePointCloudParticle = (particle) => {
+                particle.position.copyFrom(this.points[particle.idx])
+                return particle
+            }
+
+            update = () => {
+                const ball = this.ballPhysics
+                const position = ball.position
+
+                ball.drop()
+                this.points[0].copyFrom(position)
+
+                let i = 1
+                for (; i < GuideLine.PointCount; i++) {
+                    ball.tick()
+                    this.points[i].copyFrom(position)
+                    if (position.x < -BoundsWidth || BoundsWidth < position.x || position.y < -BoundsHeight) {
+                        break
+                    }
+                }
+
+                // Set all leftover points to the same position as the last point instead of deleting them.
+                for (; i < GuideLine.PointCount; i++) {
+                    this.points[i].copyFrom(position)
+                }
+
+                this.pointCloud.setParticles(0, GuideLine.PointCount)
+            }
+        }
+    }
 
     //#endregion
 
@@ -791,10 +870,6 @@ var createScene = function () {
     }
 
     scene.onPointerObservable.add((pointerInfo) => {
-        if (!ballsReady) {
-            return
-        }
-
         switch (pointerInfo.type) {
             case BABYLON.PointerEventTypes.POINTERDOWN:
                 if (pointerInfo.pickInfo.hit) {
@@ -805,6 +880,7 @@ var createScene = function () {
                         const pickedMesh = pointerInfo.pickInfo.pickedMesh
                         if (Plane.PlaneMeshMap.has(pickedMesh)) {
                             Plane.PlaneMeshMap.get(pickedMesh).disable()
+                            guideline.update()
                         }
                     }
                 }
@@ -820,6 +896,7 @@ var createScene = function () {
                         pickedPoint.y = Math.max(-HalfBoundsHeight, Math.min(pickedPoint.y, HalfBoundsHeight))
                         pickedPoint.z = 0
                         planeBeingAdded.endPoint = pickedPoint
+                        guideline.update()
                     }
                 }
 
