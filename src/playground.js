@@ -136,18 +136,22 @@ var createScene = function () {
     //#region class Ball
 
     const BallMesh = BABYLON.MeshBuilder.CreateSphere(`ball`, { diameter: BallRadius, segments: 16 }, scene)
+    BallMesh.isVisible = false
 
     class Ball {
         static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
         static Hue = 0
         static intersectionPoint = new BABYLON.Vector3
 
-        static InstanceColors = new Array(4 * BallPoolCount)
-        static InstanceMatrices = new Array(16 * BallPoolCount)
+        static InstanceColors = new Float32Array(4 * BallPoolCount)
+        static InstanceMatrices = new Float32Array(16 * BallPoolCount)
         static InstanceMatricesDirty = true
         static InstanceColorsDirty = true
 
         static CreateInstances = () => {
+            Ball.InstanceColors.fill(0)
+            Ball.InstanceMatrices.fill(0)
+
             // Set matrices to identity.
             for (let i = 0; i < BallPoolCount; i++) {
                 const matrixIndex = 16 * i
@@ -166,16 +170,22 @@ var createScene = function () {
             }
 
             BallMesh.thinInstanceSetBuffer(`matrix`, Ball.InstanceMatrices, 16, false)
-            BallMesh.thinInstanceSetBuffer(`color`, Ball.InstanceColors, 16, false)
+            BallMesh.thinInstanceSetBuffer(`color`, Ball.InstanceColors, 4, false)
             Ball.UpdateInstances()
+
+            BallMesh.isVisible = true
         }
 
         static UpdateInstances = () => {
             if (Ball.InstanceMatricesDirty) {
+                // console.log(`Updating instance matrix buffer ...`)
+                // console.log(Ball.InstanceMatrices)
                 Ball.InstanceMatricesDirty = false
                 BallMesh.thinInstanceBufferUpdated(`matrix`)
             }
             if (Ball.InstanceColorsDirty) {
+                console.log(`Updating instance color buffer ...`)
+                console.log(Ball.InstanceColors)
                 Ball.InstanceColorsDirty = false
                 BallMesh.thinInstanceBufferUpdated(`color`)
             }
@@ -189,6 +199,9 @@ var createScene = function () {
 
             BABYLON.Color3.HSVtoRGBToRef(Ball.Hue, 0.75, 1, this._.color)
             Ball.Hue += BallHueIncrement
+
+            this._.updateInstanceColor()
+            this._.updateInstancePosition()
         }
 
         get color() {
