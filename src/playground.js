@@ -82,6 +82,8 @@ var createScene = function () {
 
     //#endregion
 
+    //#region Geometry functions
+
     const intersection = (a1, a2, b1, b2, out) => {
         // Return `false` if one of the line lengths is zero.
         if ((a1.x === a2.x && a1.y === a2.y) || (b1.x === b2.x && b1.y === b2.y)) {
@@ -109,6 +111,8 @@ var createScene = function () {
 
         return true
     }
+
+    //#endregion
 
     //#region class Border
     const border = new class Border {
@@ -178,14 +182,10 @@ var createScene = function () {
 
         static UpdateInstances = () => {
             if (Ball.InstanceMatricesDirty) {
-                // console.log(`Updating instance matrix buffer ...`)
-                // console.log(Ball.InstanceMatrices)
                 Ball.InstanceMatricesDirty = false
                 BallMesh.thinInstanceBufferUpdated(`matrix`)
             }
             if (Ball.InstanceColorsDirty) {
-                console.log(`Updating instance color buffer ...`)
-                console.log(Ball.InstanceColors)
                 Ball.InstanceColorsDirty = false
                 BallMesh.thinInstanceBufferUpdated(`color`)
             }
@@ -253,10 +253,14 @@ var createScene = function () {
             drop = () => {
                 this.currentPosition.copyFrom(Ball.StartPosition)
                 this.previousPosition.copyFrom(Ball.StartPosition)
-                this.velocity.set(0, 0, 0)
-                this.isVisible = true
-                this.updateInstanceColor()
                 this.updateInstancePosition()
+
+                if (!this.isVisible) {
+                    this.isVisible = true
+                    this.updateInstanceColor()
+                }
+
+                this.velocity.set(0, 0, 0)
             }
 
             onCollide = (plane, bounceAngle, speed) => {
