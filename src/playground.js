@@ -453,7 +453,7 @@ var createScene = function () {
             matrixIndex = 0
             isVisible = false
             tone = null
-            color = new Color3
+            color = new BABYLON.Color3
             ballPhysics = new BallPhysics
             lastPhysicsTickInMs = 0
 
