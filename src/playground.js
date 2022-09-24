@@ -1,14 +1,13 @@
-const { Color3 } = require("babylonjs")
 
 var createScene = function () {
     //#region Constants
 
     const BoundsWidth = 5
     const BoundsHeight = BoundsWidth
-    const BallPoolCount = 200
+    const BallPoolCount = 1000
     const BallRestitution = 0.98
     const BpmDefault = 60
-    const BpmMin = 12
+    const BpmMin = 1
     const BpmMax = 240
     const Gravity = 1.5
     const PhysicsBoundsWidth = 1.25 * BoundsWidth
@@ -137,10 +136,146 @@ var createScene = function () {
 
     //#endregion
 
+    //#region class Plane
+
+    const planeMeshPrototype = BABYLON.MeshBuilder.CreateBox(`plane mesh prototype`, { size: 1 })
+    planeMeshPrototype.scaling.y = 0.25
+    planeMeshPrototype.scaling.z = 0.075
+    planeMeshPrototype.isPickable = false
+    planeMeshPrototype.isVisible = false
+    planeMeshPrototype.material = new BABYLON.StandardMaterial(`plane.material`)
+    planeMeshPrototype.material.diffuseColor.set(0.1, 0.1, 0.1)
+    planeMeshPrototype.material.emissiveColor.set(0.1, 0.1, 0.1)
+
+    class Plane {
+        static Array = []
+        static PlaneMeshMap = new WeakMap
+
+        constructor(startPoint) {
+            this._.startPoint.copyFrom(startPoint)
+        }
+
+        get startPoint() {
+            return this._.startPoint
+        }
+
+        get endPoint() {
+            return this._.endPoint
+        }
+
+        set endPoint(value) {
+            if (!this._.mesh) {
+                this._.initializeMesh()
+                Plane.Array.push(this)
+                Plane.PlaneMeshMap.set(this._.mesh, this)
+            }
+            this._.endPoint.copyFrom(value)
+            this._.resetPoints()
+        }
+
+        get angle() {
+            return this._.angle
+        }
+
+        get playbackRate() {
+            return this._.playbackRate
+        }
+
+        freeze = () => {
+            if (!!this._.mesh) {
+                this._.mesh.isPickable = true
+                this._.mesh.freezeWorldMatrix()
+            }
+        }
+
+        resetPoints = () => {
+            this._.resetPoints()
+        }
+
+        disable = () => {
+            const index = Plane.Array.indexOf(this)
+            if (-1 < index) {
+              Plane.Array.splice(index, 1)
+            }
+            Plane.PlaneMeshMap.delete(this._.mesh)
+            this._.disable()
+            this._ = null
+        }
+
+        onCollide = (color, collisionStrength) => {
+            this._.onCollide(color, collisionStrength)
+        }
+
+        render = (deltaTime) => {
+            this._.render(deltaTime)
+        }
+
+        _ = new class {
+            startPoint = new BABYLON.Vector3
+            endPoint = new BABYLON.Vector3
+            angle = 0
+            playbackRate = 1
+            mesh = null
+            color = new BABYLON.Color3
+
+            initializeMesh = () => {
+                const mesh = this.mesh = planeMeshPrototype.clone(`plane`)
+                mesh.material = mesh.material.clone(``)
+                this.color = mesh.material.diffuseColor
+
+                mesh.isVisible = true
+            }
+
+            resetPoints = () => {
+                const mesh = this.mesh
+                mesh.scaling.x = BABYLON.Vector3.Distance(this.startPoint, this.endPoint)
+                this.playbackRate = tuning.frequencyFromPlaneScaleX(mesh.scaling.x)
+
+                BABYLON.Vector3.CenterToRef(this.startPoint, this.endPoint, mesh.position)
+
+                mesh.rotationQuaternion = null
+                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightReadOnly, HalfPI)
+
+                let angle = Math.atan2(this.endPoint.y - this.startPoint.y, this.endPoint.x - this.startPoint.x)
+                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightHandedForwardReadOnly, -angle)
+
+                if (angle < 0) {
+                    angle += TwoPI
+                }
+                this.angle = angle
+            }
+
+            disable = () => {
+                this.mesh.isVisible = false
+            }
+
+            onCollide = (color, colorStrength) => {
+                this.color.r = Math.max(this.color.r, colorStrength * color.r)
+                this.color.g = Math.max(this.color.g, colorStrength * color.g)
+                this.color.b = Math.max(this.color.b, colorStrength * color.b)
+            }
+
+            render = (deltaTime) => {
+                if (!this.mesh) {
+                    return
+                }
+                deltaTime *= 3
+                this.color.r -= deltaTime
+                this.color.g -= deltaTime
+                this.color.b -= deltaTime
+                this.color.r = Math.max(0.1, this.color.r)
+                this.color.g = Math.max(0.1, this.color.g)
+                this.color.b = Math.max(0.1, this.color.b)
+            }
+        }
+    }
+
+    //#endregion
+
     //#region class BallPhysics
 
     class BallPhysics {
-        static StartPosition = new BABYLON.Vector3(-BoundsWidth * 0.375, BoundsHeight * 0.375, 0)
+        static StartPosition = new BABYLON.Vector3(-HalfBoundsWidth * 0.75, HalfBoundsHeight * 0.95, 0)
         static IntersectionPoint = new BABYLON.Vector3
 
         onCollideObservable = new BABYLON.Observable
@@ -150,8 +285,8 @@ var createScene = function () {
         velocity = new BABYLON.Vector3
 
         drop = () => {
-            this.position.copyFrom(Ball.StartPosition)
-            this.previousPosition.copyFrom(Ball.StartPosition)
+            this.position.copyFrom(BallPhysics.StartPosition)
+            this.previousPosition.copyFrom(BallPhysics.StartPosition)
             this.velocity.set(0, 0, 0)
         }
 
@@ -188,6 +323,8 @@ var createScene = function () {
                     }
                     lastPlaneHit = plane
 
+                    const speed = this.velocity.length() * BallRestitution
+
                     let differenceAngle = plane.angle - ballAngle
                     if (differenceAngle < 0) {
                         differenceAngle += TwoPI
@@ -198,9 +335,6 @@ var createScene = function () {
                     if (ballAngle < 0) {
                         ballAngle += TwoPI
                     }
-
-                    const speedSquared = this.velocity.lengthSquared() * BallRestitution
-                    const speed = Math.sqrt(speedSquared)
 
                     this.onCollideObservable.notifyObservers({ plane: plane, bounceAngle: previousBallAngle - ballAngle, speed: speed })
 
@@ -393,142 +527,6 @@ var createScene = function () {
 
     //#endregion
 
-    //#region class Plane
-
-    const planeMeshPrototype = BABYLON.MeshBuilder.CreateBox(`plane mesh prototype`, { size: 1 })
-    planeMeshPrototype.scaling.y = 0.25
-    planeMeshPrototype.scaling.z = 0.075
-    planeMeshPrototype.isPickable = false
-    planeMeshPrototype.isVisible = false
-    planeMeshPrototype.material = new BABYLON.StandardMaterial(`plane.material`)
-    planeMeshPrototype.material.diffuseColor.set(0.1, 0.1, 0.1)
-    planeMeshPrototype.material.emissiveColor.set(0.1, 0.1, 0.1)
-
-    class Plane {
-        static Array = []
-        static PlaneMeshMap = new WeakMap
-
-        constructor(startPoint) {
-            this._.startPoint.copyFrom(startPoint)
-        }
-
-        get startPoint() {
-            return this._.startPoint
-        }
-
-        get endPoint() {
-            return this._.endPoint
-        }
-
-        set endPoint(value) {
-            if (!this._.mesh) {
-                this._.initializeMesh()
-                Plane.Array.push(this)
-                Plane.PlaneMeshMap.set(this._.mesh, this)
-            }
-            this._.endPoint.copyFrom(value)
-            this._.resetPoints()
-        }
-
-        get angle() {
-            return this._.angle
-        }
-
-        get playbackRate() {
-            return this._.playbackRate
-        }
-
-        freeze = () => {
-            if (!!this._.mesh) {
-                this._.mesh.isPickable = true
-                this._.mesh.freezeWorldMatrix()
-            }
-        }
-
-        resetPoints = () => {
-            this._.resetPoints()
-        }
-
-        disable = () => {
-            const index = Plane.Array.indexOf(this)
-            if (-1 < index) {
-              Plane.Array.splice(index, 1)
-            }
-            Plane.PlaneMeshMap.delete(this._.mesh)
-            this._.disable()
-            this._ = null
-        }
-
-        onCollide = (color, collisionStrength) => {
-            this._.onCollide(color, collisionStrength)
-        }
-
-        render = (deltaTime) => {
-            this._.render(deltaTime)
-        }
-
-        _ = new class {
-            startPoint = new BABYLON.Vector3
-            endPoint = new BABYLON.Vector3
-            angle = 0
-            playbackRate = 1
-            mesh = null
-            color = new BABYLON.Color3
-
-            initializeMesh = () => {
-                const mesh = this.mesh = planeMeshPrototype.clone(`plane`)
-                mesh.material = mesh.material.clone(``)
-                this.color = mesh.material.diffuseColor
-
-                mesh.isVisible = true
-            }
-
-            resetPoints = () => {
-                const mesh = this.mesh
-                mesh.scaling.x = BABYLON.Vector3.Distance(this.startPoint, this.endPoint)
-                this.playbackRate = tuning.frequencyFromPlaneScaleX(mesh.scaling.x)
-
-                BABYLON.Vector3.CenterToRef(this.startPoint, this.endPoint, mesh.position)
-
-                mesh.rotationQuaternion = null
-                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightReadOnly, HalfPI)
-
-                let angle = Math.atan2(this.endPoint.y - this.startPoint.y, this.endPoint.x - this.startPoint.x)
-                mesh.rotateAround(mesh.position, BABYLON.Vector3.RightHandedForwardReadOnly, -angle)
-
-                if (angle < 0) {
-                    angle += TwoPI
-                }
-                this.angle = angle
-            }
-
-            disable = () => {
-                this.mesh.isVisible = false
-            }
-
-            onCollide = (color, colorStrength) => {
-                this.color.r = Math.max(this.color.r, colorStrength * color.r)
-                this.color.g = Math.max(this.color.g, colorStrength * color.g)
-                this.color.b = Math.max(this.color.b, colorStrength * color.b)
-            }
-
-            render = (deltaTime) => {
-                if (!this.mesh) {
-                    return
-                }
-                deltaTime *= 3
-                this.color.r -= deltaTime
-                this.color.g -= deltaTime
-                this.color.b -= deltaTime
-                this.color.r = Math.max(0.1, this.color.r)
-                this.color.g = Math.max(0.1, this.color.g)
-                this.color.b = Math.max(0.1, this.color.b)
-            }
-        }
-    }
-
-    //#endregion
-
     //#region Ball handling
 
     let ballsReady = false
@@ -595,6 +593,66 @@ var createScene = function () {
             Plane.Array[i].render(deltaTime)
         }
     })
+
+    //#endregion
+
+    //#region class GuideLine
+
+    const guideline = new class GuideLine {
+        static PointCount = 100000
+
+        update = () => {
+            this._.update()
+        }
+
+        _ = new class {
+            ballPhysics = new BallPhysics
+            points = new Array(GuideLine.PointCount)
+            pointCloud = new BABYLON.PointsCloudSystem(`guideline`, 2, scene, { updatable: true })
+
+            constructor() {
+                for (let i = 0; i < GuideLine.PointCount; i++) {
+                    this.points[i] = new BABYLON.Vector3
+                }
+
+                this.pointCloud.updateParticle = this.updatePointCloudParticle
+                this.pointCloud.addPoints(GuideLine.PointCount)
+                this.pointCloud.buildMeshAsync().then(() => {
+                    this.pointCloud.mesh.visibility = 0.1
+                    this.update()
+                })
+            }
+
+            updatePointCloudParticle = (particle) => {
+                particle.position.copyFrom(this.points[particle.idx])
+                return particle
+            }
+
+            update = () => {
+                const ball = this.ballPhysics
+                const position = ball.position
+
+                ball.drop()
+                this.points[0].copyFrom(position)
+
+                let i = 1
+                for (; i < GuideLine.PointCount; i++) {
+                    ball.tick()
+                    this.points[i].copyFrom(position)
+                    if (position.x < -BoundsWidth || BoundsWidth < position.x || position.y < -BoundsHeight) {
+                        break
+                    }
+                }
+
+                // Set all leftover points to the same position as the last point instead of deleting them.
+                for (; i < GuideLine.PointCount; i++) {
+                    this.points[i].copyFrom(position)
+                }
+
+                this.pointCloud.setParticles(0, GuideLine.PointCount)
+            }
+        }
+    }
 
     //#endregion
 
@@ -812,10 +870,6 @@ var createScene = function () {
     }
 
     scene.onPointerObservable.add((pointerInfo) => {
-        if (!ballsReady) {
-            return
-        }
-
         switch (pointerInfo.type) {
             case BABYLON.PointerEventTypes.POINTERDOWN:
                 if (pointerInfo.pickInfo.hit) {
@@ -826,6 +880,7 @@ var createScene = function () {
                         const pickedMesh = pointerInfo.pickInfo.pickedMesh
                         if (Plane.PlaneMeshMap.has(pickedMesh)) {
                             Plane.PlaneMeshMap.get(pickedMesh).disable()
+                            guideline.update()
                         }
                     }
                 }
@@ -841,6 +896,7 @@ var createScene = function () {
                         pickedPoint.y = Math.max(-HalfBoundsHeight, Math.min(pickedPoint.y, HalfBoundsHeight))
                         pickedPoint.z = 0
                         planeBeingAdded.endPoint = pickedPoint
+                        guideline.update()
                     }
                 }
 
