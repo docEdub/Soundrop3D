@@ -54,7 +54,7 @@ var createScene = function () {
 
         _ = new class {
             constructor() {
-                this.setToWholeToneScale(36, 84)
+                this.setToWholeToneScale(36, 96)
             }
 
             notes = []
