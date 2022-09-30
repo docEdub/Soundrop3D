@@ -29,10 +29,6 @@ var createScene = function () {
     const PhysicsTickInSecondsSquared = PhysicsTickInSeconds * PhysicsTickInSeconds
     const PhysicsTickInSecondsSquaredTimesGravity = PhysicsTickInSecondsSquared * Gravity
 
-    const toDegrees = (value) => {
-        return (value / TwoPI) * 360
-    }
-
     //#endregion
 
     //#region Tuning
@@ -109,6 +105,10 @@ var createScene = function () {
         out.y = a1.y + ua * (a2.y - a1.y)
 
         return true
+    }
+
+    const toDegrees = (value) => {
+        return (value / TwoPI) * 360
     }
 
     //#endregion
@@ -343,6 +343,8 @@ var createScene = function () {
                         speed * Math.sin(ballAngle),
                         0
                     )
+
+
 
                     this.previousPosition.copyFrom(Ball.intersectionPoint)
                     this.position.set(
