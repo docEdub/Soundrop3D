@@ -22,7 +22,7 @@ var createScene = function () {
     const HalfBoundsHeight = BoundsHeight / 2
     const HalfPhysicsBoundsWidth = PhysicsBoundsWidth / 2
     const HalfPhysicsBoundsHeight = PhysicsBoundsHeight / 2
-    const BallRadius = BoundsWidth / 40
+    const BallRadius = BoundsWidth / 60
     const BallHueIncrement = 360 / BallPoolCount
     const MaxPlaneWidth = Math.sqrt(BoundsWidth * BoundsWidth + BoundsHeight * BoundsHeight)
     const PhysicsTickInSeconds = PhysicsTickInMs / 1000
@@ -140,7 +140,7 @@ var createScene = function () {
 
     const planeMeshPrototype = BABYLON.MeshBuilder.CreateBox(`plane mesh prototype`, { size: 1 })
     planeMeshPrototype.scaling.y = 0.25
-    planeMeshPrototype.scaling.z = 0.075
+    planeMeshPrototype.scaling.z = 0.01
     planeMeshPrototype.isPickable = false
     planeMeshPrototype.isVisible = false
     planeMeshPrototype.material = new BABYLON.StandardMaterial(`plane.material`)
