@@ -12,7 +12,7 @@ var createScene = function () {
     const Gravity = 3
     const PhysicsBoundsWidth = 1.25 * BoundsWidth
     const PhysicsBoundsHeight = 1.25 * BoundsHeight
-    const PhysicsTickInMs = 1000 / 120
+    const PhysicsTickInMs = 4
     const ToneBaseNote = 33 // 55 hz
 
     const HalfPI = Math.PI / 2
